@@ -1,1518 +1,2419 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import { useState, useEffect, useRef, useCallback } from "react";
+import ChipSelector from "../components/ChipSelector";
 
-/* ══════════════════════════════════════════════
-   ROULETTE DATA & TYPES
-   ══════════════════════════════════════════════ */
+// ─── Constants ─────────────────────────────────────────────────────────────
 
-interface RawArea {
-  id: string;
-  name: string;
-  coords: [number, number, number, number];
-  type: 'number' | 'color' | 'half' | 'parity' | 'dozen' | 'column' | 'zero';
-}
-
-// Bounding box coordinates from roulette_table_map.html (based on 640x282 dimensions)
-const RAW_AREAS: RawArea[] = [
-  { id: "1", name: "1", coords: [305, 167, 278, 128], type: "number" },
-  { id: "2", name: "2", coords: [305, 128, 278, 89], type: "number" },
-  { id: "3", name: "3", coords: [278, 52, 306, 90], type: "number" },
-  { id: "4", name: "4", coords: [306, 167, 331, 127], type: "number" },
-  { id: "5", name: "5", coords: [305, 129, 330, 89], type: "number" },
-  { id: "6", name: "6", coords: [331, 90, 305, 52], type: "number" },
-  { id: "7", name: "7", coords: [331, 167, 356, 128], type: "number" },
-  { id: "8", name: "8", coords: [331, 89, 356, 129], type: "number" },
-  { id: "9", name: "9", coords: [332, 53, 356, 90], type: "number" },
-  { id: "10", name: "10", coords: [355, 168, 382, 128], type: "number" },
-  { id: "11", name: "11", coords: [355, 89, 382, 129], type: "number" },
-  { id: "12", name: "12", coords: [357, 52, 382, 91], type: "number" },
-  { id: "13", name: "13", coords: [381, 127, 409, 168], type: "number" },
-  { id: "14", name: "14", coords: [381, 89, 408, 131], type: "number" },
-  { id: "15", name: "15", coords: [382, 53, 408, 91], type: "number" },
-  { id: "16", name: "16", coords: [408, 168, 433, 128], type: "number" },
-  { id: "17", name: "17", coords: [406, 89, 433, 129], type: "number" },
-  { id: "18", name: "18", coords: [406, 52, 434, 91], type: "number" },
-  { id: "19", name: "19", coords: [432, 128, 459, 168], type: "number" },
-  { id: "20", name: "20", coords: [432, 89, 460, 129], type: "number" },
-  { id: "21", name: "21", coords: [433, 52, 458, 91], type: "number" },
-  { id: "22", name: "22", coords: [458, 168, 485, 127], type: "number" },
-  { id: "23", name: "23", coords: [458, 88, 484, 129], type: "number" },
-  { id: "24", name: "24", coords: [458, 52, 485, 90], type: "number" },
-  { id: "25", name: "25", coords: [483, 128, 511, 167], type: "number" },
-  { id: "26", name: "26", coords: [483, 88, 510, 129], type: "number" },
-  { id: "27", name: "27", coords: [485, 53, 509, 90], type: "number" },
-  { id: "28", name: "28", coords: [508, 127, 535, 167], type: "number" },
-  { id: "29", name: "29", coords: [507, 89, 536, 129], type: "number" },
-  { id: "30", name: "30", coords: [507, 52, 536, 91], type: "number" },
-  { id: "31", name: "31", coords: [534, 128, 561, 169], type: "number" },
-  { id: "32", name: "32", coords: [534, 89, 562, 131], type: "number" },
-  { id: "33", name: "33", coords: [534, 52, 562, 92], type: "number" },
-  { id: "34", name: "34", coords: [559, 127, 587, 168], type: "number" },
-  { id: "35", name: "35", coords: [560, 89, 588, 131], type: "number" },
-  { id: "36", name: "36", coords: [560, 52, 588, 92], type: "number" },
-  { id: "red", name: "Red", coords: [383, 195, 430, 216], type: "color" },
-  { id: "black", name: "Black", coords: [435, 194, 482, 216], type: "color" },
-  { id: "1-18", name: "1 - 18", coords: [281, 194, 328, 216], type: "half" },
-  { id: "even", name: "Even", coords: [332, 194, 379, 216], type: "parity" },
-  { id: "odd", name: "Odd", coords: [485, 194, 534, 217], type: "parity" },
-  { id: "19-36", name: "19 - 36", coords: [537, 195, 583, 216], type: "half" },
-  { id: "1st12", name: "1st 12", coords: [277, 165, 380, 191], type: "dozen" },
-  { id: "2nd12", name: "2nd 12", coords: [381, 165, 484, 191], type: "dozen" },
-  { id: "3rd12", name: "3rd 12", coords: [485, 165, 585, 191], type: "dozen" },
-  { id: "col1", name: "2 to 1", coords: [584, 129, 610, 166], type: "column" },
-  { id: "col2", name: "2 to 1", coords: [583, 91, 611, 127], type: "column" },
-  { id: "col3", name: "2 to 1", coords: [585, 52, 611, 90], type: "column" },
-  { id: "0", name: "0", coords: [245, 51, 279, 168], type: "zero" },
-];
-
-const RED_NUMBERS = new Set([
-  1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36
+const RED_NUMS = new Set([
+  1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36,
 ]);
 
-const getNumberColor = (num: number): "red" | "black" | "green" => {
-  if (num === 0) return "green";
-  return RED_NUMBERS.has(num) ? "red" : "black";
-};
+const WHEEL_ORDER = [
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
+  16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
+];
+const NUM_SEGS = WHEEL_ORDER.length;
+const SEG_ANGLE = (2 * Math.PI) / NUM_SEGS;
+// Pointer is fixed at TOP of wheel (12 o'clock = -π/2 in canvas coords)
+const POINTER_ANGLE = -Math.PI / 2;
 
-// European Roulette clockwise wheel order
-const WHEEL_NUMBERS = [
-  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10,
-  5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
+const TABLE_ROWS: number[][] = [
+  [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
+  [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
+  [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
 ];
 
-const WHEEL_IMAGE_SIZE = 2000;
-const WHEEL_BOX = { x: 10, y: 31, size: 220 };
-const WHEEL_CONTAINER_WIDTH = WHEEL_BOX.size;
-const WHEEL_IMAGE_SCALE = WHEEL_BOX.size / WHEEL_IMAGE_SIZE;
-const WHEEL_AREA = { x: 1000, y: 1000, r: 698 };
-const WHEEL_CENTER = {
-  x: WHEEL_BOX.x + (WHEEL_AREA.x * WHEEL_IMAGE_SCALE),
-  y: WHEEL_BOX.y + (WHEEL_AREA.y * WHEEL_IMAGE_SCALE),
-};
-const WHEEL_RADIUS = WHEEL_AREA.r * WHEEL_IMAGE_SCALE;
-const WHEEL_DISC_CLIP_PERCENT = `${((WHEEL_AREA.r / WHEEL_IMAGE_SIZE) * 100).toFixed(2)}%`;
-const WHEEL_ORBIT_SIZE_PERCENT = `${(((WHEEL_RADIUS * 2) / WHEEL_CONTAINER_WIDTH) * 100).toFixed(2)}%`;
-const WHEEL_BOX_STYLE = {
-  left: `${((WHEEL_BOX.x / 640) * 100).toFixed(2)}%`,
-  top: `${((WHEEL_BOX.y / 282) * 100).toFixed(2)}%`,
-  width: `${((WHEEL_BOX.size / 640) * 100).toFixed(2)}%`,
-  height: `${((WHEEL_BOX.size / 282) * 100).toFixed(2)}%`,
-};
-const SPIN_DURATION_MS = 4200;
-const AUTO_SPIN_SECONDS = 10;
-
-const RAW_WHEEL_POCKETS: Record<number, { x: number; y: number; r: number }> = {
-  0: { x: 1000, y: 300, r: 37 },
-  32: { x: 1120, y: 320, r: 37 },
-  15: { x: 1230, y: 365, r: 37 },
-  19: { x: 1330, y: 435, r: 37 },
-  4: { x: 1415, y: 525, r: 37 },
-  21: { x: 1480, y: 635, r: 37 },
-  2: { x: 1520, y: 755, r: 37 },
-  25: { x: 1540, y: 875, r: 37 },
-  17: { x: 1525, y: 995, r: 37 },
-  34: { x: 1485, y: 1115, r: 37 },
-  6: { x: 1420, y: 1225, r: 37 },
-  27: { x: 1335, y: 1315, r: 37 },
-  13: { x: 1235, y: 1385, r: 37 },
-  36: { x: 1125, y: 1430, r: 37 },
-  11: { x: 1005, y: 1450, r: 37 },
-  30: { x: 885, y: 1430, r: 37 },
-  8: { x: 775, y: 1385, r: 37 },
-  23: { x: 675, y: 1315, r: 37 },
-  10: { x: 590, y: 1225, r: 37 },
-  5: { x: 525, y: 1115, r: 37 },
-  24: { x: 485, y: 995, r: 37 },
-  16: { x: 470, y: 875, r: 37 },
-  33: { x: 490, y: 755, r: 37 },
-  1: { x: 530, y: 635, r: 37 },
-  20: { x: 595, y: 525, r: 37 },
-  14: { x: 680, y: 435, r: 37 },
-  31: { x: 780, y: 365, r: 37 },
-  9: { x: 890, y: 320, r: 37 },
-  22: { x: 835, y: 390, r: 37 },
-  18: { x: 735, y: 455, r: 37 },
-  29: { x: 650, y: 545, r: 37 },
-  7: { x: 590, y: 650, r: 37 },
-  28: { x: 555, y: 770, r: 37 },
-  12: { x: 550, y: 890, r: 37 },
-  35: { x: 575, y: 1010, r: 37 },
-  3: { x: 630, y: 1120, r: 37 },
-  26: { x: 710, y: 1215, r: 37 },
-};
-
-const mapWheelPointToTable = ({ x, y, r }: { x: number; y: number; r: number }) => ({
-  x: WHEEL_BOX.x + (x * WHEEL_IMAGE_SCALE),
-  y: WHEEL_BOX.y + (y * WHEEL_IMAGE_SCALE),
-  r: r * WHEEL_IMAGE_SCALE,
-});
-
-const WHEEL_POCKETS = Object.fromEntries(
-  Object.entries(RAW_WHEEL_POCKETS).map(([num, point]) => [Number(num), mapWheelPointToTable(point)])
-) as Record<number, { x: number; y: number; r: number }>;
-// wheel_map.html coordinates are accurate, but the rendered wheel.svg art is rotated:
-// the map point titled 21 visually sits on 30, so we compensate by 10 pockets.
-const WHEEL_VISUAL_POCKET_OFFSET = 10;
-
-const getVisualPocketNumber = (num: number) => {
-  const idx = WHEEL_NUMBERS.indexOf(num);
-  if (idx === -1) return 0;
-  return WHEEL_NUMBERS[(idx - WHEEL_VISUAL_POCKET_OFFSET + WHEEL_NUMBERS.length) % WHEEL_NUMBERS.length];
-};
-
-// Smallest chip starts on the right in RTL, then grows toward the left.
-const CHIP_TRAY = [
-  { val: 1,  img: "/roulette/1_chip.svg",  cls: "chip-1" },
-  { val: 2,  img: "/roulette/2_chip.svg",  cls: "chip-2" },
-  { val: 5,  img: "/roulette/5_chip.svg",  cls: "chip-5" },
-  { val: 25, img: "/roulette/25_chip.svg", cls: "chip-25" },
-  { val: 50, img: "/roulette/50_chip.svg", cls: "chip-50" },
+const CHIP_DEFS = [
+  { value: 1, label: "1", cls: "c1", svgPath: "/roulette/1_chip.svg" },
+  { value: 2, label: "2", cls: "c2", svgPath: "/roulette/2_chip.svg" },
+  { value: 5, label: "5", cls: "c5", svgPath: "/roulette/5_chip.svg" },
+  { value: 25, label: "25", cls: "c25", svgPath: "/roulette/25_chip.svg" },
+  { value: 50, label: "50", cls: "c50", svgPath: "/roulette/50_chip.svg" },
+  { value: 100, label: "100", cls: "c100", svgPath: "/roulette/100_chip.svg" },
 ];
 
-interface Bet {
-  id: number;
-  key: string;
-  type: 'straight' | 'split' | 'corner' | 'sixline' | 'dozen' | 'column' | 'color' | 'parity' | 'half' | 'zero' | 'street';
-  numbers: number[];
-  value: number;
-  chipImg: string;
-  left: number;
-  top: number;
-  label: string;
+const CHIP_COLORS: Record<string, string> = {
+  c1: "#1b5e20",
+  c2: "#b71c1c",
+  c5: "#e65100",
+  c25: "#00838f",
+  c50: "#bf360c",
+  c100: "#f57f17",
+};
+
+// ─── SVG image natural dimensions (from the viewBox) ─────────────────────────
+// viewBox="0 0 768 424.499987"  →  SVG_W=768, SVG_H=424.5
+const SVG_W = 768;
+const SVG_H = 424.5;
+
+// ─── Area map from roulette_table_map.html  ───────────────────────────────
+// Each entry: key → [x1,y1,x2,y2]  (coords in the 1024px image space)
+// The image-map was made against a 1024-wide PNG embedded in the SVG,
+// so we must scale by SVG_W/1024 for X and SVG_H/566 for Y.
+// (The SVG tag says width="1024" height="566" but viewBox 768×424.5,
+//  giving scale ≈ 0.75 for both axes.)
+
+// Raw coords from the HTML map (x1,y1,x2,y2 in image-map pixel space 1024×566)
+const RAW_AREAS: Record<string, [number, number, number, number]> = {
+  "0": [441, 122, 489, 328],
+  "1": [482, 256, 524, 328],
+  "2": [482, 189, 526, 260],
+  "3": [482, 121, 526, 194],
+  "4": [520, 256, 565, 328],
+  "5": [520, 188, 564, 260],
+  "6": [520, 122, 565, 194],
+  "7": [559, 254, 607, 330],
+  "8": [561, 188, 605, 262],
+  "9": [561, 122, 603, 194],
+  "10": [601, 252, 644, 328],
+  "11": [602, 188, 646, 262],
+  "12": [598, 122, 646, 194],
+  "13": [638, 256, 683, 328],
+  "14": [635, 188, 683, 266],
+  "15": [638, 122, 683, 195],
+  "16": [677, 254, 725, 330],
+  "17": [677, 188, 723, 260],
+  "18": [679, 122, 723, 195],
+  "19": [720, 254, 762, 330],
+  "20": [716, 188, 762, 262],
+  "21": [718, 124, 764, 195],
+  "22": [760, 256, 803, 330],
+  "23": [757, 188, 805, 264],
+  "24": [758, 120, 803, 192],
+  "25": [793, 253, 841, 330],
+  "26": [799, 186, 839, 262],
+  "27": [795, 122, 841, 192],
+  "28": [836, 254, 880, 330],
+  "29": [836, 188, 878, 264],
+  "30": [834, 120, 882, 192],
+  "31": [875, 254, 919, 330],
+  "32": [871, 188, 919, 265],
+  "33": [876, 120, 917, 193],
+  "34": [913, 254, 958, 330],
+  "35": [913, 188, 956, 262],
+  "36": [911, 122, 958, 195],
+  black: [718, 361, 797, 398],
+  red: [640, 360, 718, 398],
+  "1to18": [489, 363, 559, 395],
+  "19to36": [878, 363, 950, 395],
+  even: [563, 361, 638, 396],
+  odd: [799, 361, 875, 396],
+  "doz-1": [483, 330, 640, 360],
+  "doz-2": [642, 330, 797, 361],
+  "doz-3": [799, 330, 952, 360],
+  "col-0": [958, 129, 991, 184], // top row 2:1
+  "col-1": [959, 195, 991, 254], // middle row 2:1
+  "col-2": [959, 262, 987, 319], // bottom row 2:1
+};
+
+// ─── Last-10 slot coords from roulette_table_map.html (image-map pixel space 1024×566) ─
+// coords="x1,y1,x2,y2"  (slots 1..10, left→right)
+const LAST10_RAW: [number, number, number, number][] = [
+  [591, 41, 624, 70], // slot 1
+  [621, 40, 651, 71], // slot 2
+  [647, 42, 677, 70], // slot 3
+  [674, 43, 704, 70], // slot 4
+  [698, 43, 731, 70], // slot 5
+  [727, 42, 754, 70], // slot 6
+  [750, 43, 782, 70], // slot 7
+  [776, 42, 807, 70], // slot 8
+  [805, 42, 833, 70], // slot 9
+  [827, 43, 861, 70], // slot 10
+];
+
+const LAST10_SLOTS = LAST10_RAW
+  .map((coords, idx) => {
+    const x1 = Math.min(coords[0], coords[2]);
+    const x2 = Math.max(coords[0], coords[2]);
+    return {
+      index: idx,
+      coords,
+      centerX: (x1 + x2) / 2,
+    };
+  })
+  .sort((a, b) => a.centerX - b.centerX);
+
+// Scale factors: image-map uses 1024×566 pixel space
+const SCALE_X = SVG_W / 1024;
+const SCALE_Y = SVG_H / 566;
+
+// Compute center of each area in SVG coordinates
+function areaCenter(key: string): { x: number; y: number } | null {
+  const r = RAW_AREAS[key];
+  if (!r) return null;
+  return {
+    x: ((r[0] + r[2]) / 2) * SCALE_X,
+    y: ((r[1] + r[3]) / 2) * SCALE_Y,
+  };
 }
 
-type ResultStatus = "idle" | "win" | "lose";
-type BetDraft = Omit<Bet, 'id' | 'value' | 'chipImg' | 'left' | 'top'>;
-
-/* ─── Confetti ─── */
-function spawnConfetti(primaryColor: string) {
-  const colors = [primaryColor, "#f5c518", "#ffffff", "#4ade80", primaryColor];
-  for (let i = 0; i < 45; i++) {
-    const el = document.createElement("div");
-    el.className = "confetti";
-    el.style.cssText = `
-      position:fixed;left:${Math.random()*100}vw;top:-10px;
-      background:${colors[i%colors.length]};
-      --dur:${0.9+Math.random()*1.3}s;
-      animation:confettiFall var(--dur) linear forwards;
-      animation-delay:${Math.random()*0.3}s;
-      width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;
-      border-radius:${Math.random() > 0.5 ? "50%" : "2px"};
-      pointer-events:none;z-index:9999;
-    `;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2500);
-  }
+// Compute rect in SVG coordinates (for hit-testing)
+function areaRect(
+  key: string,
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  const r = RAW_AREAS[key];
+  if (!r) return null;
+  return {
+    x1: Math.min(r[0], r[2]) * SCALE_X,
+    y1: Math.min(r[1], r[3]) * SCALE_Y,
+    x2: Math.max(r[0], r[2]) * SCALE_X,
+    y2: Math.max(r[1], r[3]) * SCALE_Y,
+  };
 }
 
-/* ══════════════════════════════════════════════
-   MAIN COMPONENT
-   ══════════════════════════════════════════════ */
+// Compute custom chip position for standard and combo bets
+function getChipPos(key: string): { x: number; y: number } | null {
+  const c = areaCenter(key);
+  if (c) return c;
 
-export default function Roulette() {
-  const [balance, setBalance] = useState(2000);
-  const [bets, setBets] = useState<Bet[]>([]);
-  const [selectedChip, setSelectedChip] = useState(1);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [winningNumber, setWinningNumber] = useState<number | null>(null);
-  const [spinTargetNumber, setSpinTargetNumber] = useState<number | null>(null);
-  const [history, setHistory] = useState<number[]>([]);
-  const [winOverlay, setWinOverlay] = useState<{ text: string; color: string; sub?: string } | null>(null);
-  const [resultMsg, setResultMsg] = useState("ضع رهاناتك واضغط Spin للبدء!");
-  const [resultCls, setResultCls] = useState<ResultStatus>("idle");
-  const [lastBets, setLastBets] = useState<Bet[]>([]);
-  const [spinCountdown, setSpinCountdown] = useState<number | null>(null);
-  
-  // Interactive Speech bubble for Gemini 2.5 Live Dealer
-  const [dealerComment, setDealerComment] = useState("أهلاً بكم في طاولة الروليت الملكية! ضعوا رهاناتكم وابدأوا الدوران.");
-
-  // Hover Outline highlight coordinates
-  const [hoveredBet, setHoveredBet] = useState<{
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-    label: string;
-  } | null>(null);
-
-  const betId = useRef(0);
-  const spinNowRef = useRef<() => void>(() => {});
-
-  const getChipImg = (val: number) => {
-    const item = CHIP_TRAY.find(c => c.val === val) ??
-      CHIP_TRAY.reduce((best, chip) => (chip.val <= val && chip.val > best.val ? chip : best), CHIP_TRAY[0]);
-    return item ? item.img : "/roulette/50_chip.svg";
-  };
-
-  /* ─── API Live AI Dealer Fetch Trigger ─── */
-  const fetchDealerComment = async (
-    event: "placed_bet" | "spinning" | "result",
-    currentBets = bets,
-    rolledNum: number | null = null,
-    winAmt = 0
-  ) => {
-    try {
-      const betsSummary = currentBets.map(b => `${b.label} بقيمة $${b.value}`).join("، ");
-      const totalBetAmount = currentBets.reduce((sum, b) => sum + b.value, 0);
-
-      const res = await fetch("/api/dealer-ai/roulette", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event,
-          betsSummary,
-          rolled: rolledNum,
-          totalWin: winAmt,
-          totalBet: totalBetAmount
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.comment) {
-          setDealerComment(data.comment);
-        }
-      }
-    } catch (err) {
-      console.error("AI Dealer comment error:", err);
-    }
-  };
-
-  /* ─── Numbers Bounding Box Logic ─── */
-  const getNumbersBoundingBox = (numbers: number[]) => {
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    
-    for (const num of numbers) {
-      const area = RAW_AREAS.find(a => a.id === num.toString());
-      if (area) {
-        const x1 = area.coords[0];
-        const y1 = area.coords[1];
-        const x2 = area.coords[2];
-        const y2 = area.coords[3];
-        
-        minX = Math.min(minX, x1, x2);
-        maxX = Math.max(maxX, x1, x2);
-        minY = Math.min(minY, y1, y2);
-        maxY = Math.max(maxY, y1, y2);
-      }
-    }
-    
-    if (minX === Infinity) return null;
-    
-    return {
-      left: (minX / 640) * 100,
-      top: (minY / 282) * 100,
-      width: ((maxX - minX) / 640) * 100,
-      height: ((maxY - minY) / 282) * 100
-    };
-  };
-
-  /* ─── Unified Area Bounding Box Retriever ─── */
-  const getAreaBoundingBox = (betType: string, id: string, numbers: number[]) => {
-    if (betType === 'street' || betType === 'sixline' || betType === 'corner' || betType === 'split' || betType === 'straight' || betType === 'zero') {
-      return getNumbersBoundingBox(numbers);
-    }
-
-    // Outer areas
-    const area = RAW_AREAS.find(a => a.id === id);
-    if (!area) return null;
-    const x1 = area.coords[0];
-    const y1 = area.coords[1];
-    const x2 = area.coords[2];
-    const y2 = area.coords[3];
-    const left = Math.min(x1, x2);
-    const right = Math.max(x1, x2);
-    const top = Math.min(y1, y2);
-    const bottom = Math.max(y1, y2);
-    return {
-      left: (left / 640) * 100,
-      top: (top / 282) * 100,
-      width: ((right - left) / 640) * 100,
-      height: ((bottom - top) / 282) * 100
-    };
-  };
-
-  const getChipPosition = (betKey: string, betType: string, numbers: number[], bbox: { left: number; top: number; width: number; height: number }) => {
-    const insideBets = new Set(["straight", "split", "corner", "sixline", "street", "zero"]);
-    if (!insideBets.has(betType)) {
-      return {
-        left: bbox.left + bbox.width / 2,
-        top: bbox.top + bbox.height / 2,
-      };
-    }
-
-    if (betKey.startsWith("split-0-")) {
-      const pairedNumber = numbers.find(num => num !== 0);
-      const pairedArea = RAW_AREAS.find(area => area.id === pairedNumber?.toString());
-      if (pairedArea) {
-        const yCenter = ((Math.min(pairedArea.coords[1], pairedArea.coords[3]) + Math.max(pairedArea.coords[1], pairedArea.coords[3])) / 2 / 282) * 100;
-        return {
-          left: (278 / 640) * 100,
-          top: yCenter,
-        };
-      }
-    }
-
-    const numbersBbox = getNumbersBoundingBox(numbers);
-    if (!numbersBbox) {
-      return {
-        left: bbox.left + bbox.width / 2,
-        top: bbox.top + bbox.height / 2,
-      };
-    }
-
-    if (betType === "street" || betType === "sixline") {
-      return {
-        left: numbersBbox.left + numbersBbox.width / 2,
-        top: (168 / 282) * 100,
-      };
-    }
-
-    return {
-      left: numbersBbox.left + numbersBbox.width / 2,
-      top: numbersBbox.top + numbersBbox.height / 2,
-    };
-  };
-
-  /* ─── Find Outer Area by Rect Collision ─── */
-  const findOuterArea = (x: number, y: number) => {
-    for (const area of RAW_AREAS) {
-      if (area.type === 'number' || area.type === 'zero') continue;
-      const x1 = area.coords[0];
-      const y1 = area.coords[1];
-      const x2 = area.coords[2];
-      const y2 = area.coords[3];
-      const left = Math.min(x1, x2);
-      const right = Math.max(x1, x2);
-      const top = Math.min(y1, y2);
-      const bottom = Math.max(y1, y2);
-      
-      if (x >= left && x <= right && y >= top && y <= bottom) {
-        return area;
-      }
-    }
-    return null;
-  };
-
-  /* ─── Get exact numbers covered by outer keys ─── */
-  const getOuterAreaNumbers = (id: string): number[] => {
-    switch (id) {
-      case "red": return Array.from(RED_NUMBERS);
-      case "black": return [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35];
-      case "1-18": return Array.from({length: 18}, (_, i) => i + 1);
-      case "19-36": return Array.from({length: 18}, (_, i) => i + 19);
-      case "even": return Array.from({length: 18}, (_, i) => (i + 1) * 2);
-      case "odd": return Array.from({length: 18}, (_, i) => i * 2 + 1);
-      case "1st12": return Array.from({length: 12}, (_, i) => i + 1);
-      case "2nd12": return Array.from({length: 12}, (_, i) => i + 13);
-      case "3rd12": return Array.from({length: 12}, (_, i) => i + 25);
-      case "col1": return [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34];
-      case "col2": return [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35];
-      case "col3": return [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
-      default: return [];
-    }
-  };
-
-  /* ─── Interactive Board Click Matching ─── */
-  const getBetFromCoordinates = (clickX: number, clickY: number): BetDraft | null => {
-    // 1. Check if inside zero area X: 245 to 278, Y: 52 to 168
-    if (clickX >= 245 && clickX <= 278 && clickY >= 52 && clickY <= 168) {
-      if (278 - clickX < 9) { // border splitting zero and column 1
-        if (clickY >= 52 && clickY < 90) {
-          return { key: "split-0-3", type: "split", numbers: [0, 3], label: "تقسيم 0 و 3" };
-        } else if (clickY >= 90 && clickY < 128) {
-          return { key: "split-0-2", type: "split", numbers: [0, 2], label: "تقسيم 0 و 2" };
-        } else {
-          return { key: "split-0-1", type: "split", numbers: [0, 1], label: "تقسيم 0 و 1" };
-        }
-      } else {
-        return { key: "zero-0", type: "zero", numbers: [0], label: "رقم 0" };
-      }
-    }
-
-    // 2. Check if inside numbers grid X: 278 to 588, Y: 52 to 168
-    if (clickX >= 278 && clickX <= 588) {
-      const colX = [278, 305, 331, 356, 381, 408, 433, 458, 484, 509, 535, 560, 588];
-      const rowY = [52, 90, 128, 168];
-      const LINE_SNAP = 7;
-      const STREET_LANE_TOP = 158;
-      const STREET_LANE_BOTTOM = 184;
-      const numGrid = [
-        [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34], // bottom row
-        [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35], // middle row
-        [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36], // top row
-      ];
-
-      // A: Detect Street (3 numbers) or Six-Line (6 numbers) bets in the lower street lane.
-      if (clickY >= STREET_LANE_TOP && clickY <= STREET_LANE_BOTTOM) {
-        let nearColIdx = -1;
-        for (let c = 1; c <= 11; c++) {
-          if (Math.abs(clickX - colX[c]) <= LINE_SNAP + 2) {
-            nearColIdx = c;
-            break;
-          }
-        }
-
-        if (nearColIdx !== -1) {
-          // Double Street / Six-line bet (6 numbers)
-          const c = nearColIdx;
-          const numbers = [
-            numGrid[0][c-1], numGrid[1][c-1], numGrid[2][c-1],
-            numGrid[0][c], numGrid[1][c], numGrid[2][c]
-          ].sort((a, b) => a - b);
-          return {
-            key: `sixline-${numbers.join("-")}`,
-            type: "sixline",
-            numbers,
-            label: `سطرين متجاورين (${numbers.join("-")})`
-          };
-        } else {
-          // Single Street bet (3 numbers)
-          let colIdx = 0;
-          for (let c = 0; c < 12; c++) {
-            if (clickX >= colX[c] && clickX < colX[c+1]) {
-              colIdx = c;
-              break;
-            }
-          }
-          const numbers = [
-            numGrid[0][colIdx], numGrid[1][colIdx], numGrid[2][colIdx]
-          ].sort((a, b) => a - b);
-          return {
-            key: `street-${numbers.join("-")}`,
-            type: "street",
-            numbers,
-            label: `سطر أرقام (${numbers.join("-")})`
-          };
-        }
-      }
-
-      // B: Standard Grid checks (Inside numbers grid borders)
-      if (clickY > 52 && clickY < 168) {
-        // Check vertical lines distance
-        let nearColIdx = -1;
-        for (let c = 1; c <= 11; c++) {
-          if (Math.abs(clickX - colX[c]) <= LINE_SNAP) {
-            nearColIdx = c;
-            break;
-          }
-        }
-
-        // Check horizontal lines distance
-        let nearRowIdx = -1;
-        for (let r = 1; r <= 2; r++) {
-          if (Math.abs(clickY - rowY[r]) <= LINE_SNAP) {
-            nearRowIdx = r;
-            break;
-          }
-        }
-
-        // Case A: Corner Bet (both vertical & horizontal intersection are close)
-        if (nearColIdx !== -1 && nearRowIdx !== -1) {
-          const c = nearColIdx;
-          const r = nearRowIdx;
-          const numbers = [
-            numGrid[3 - r][c - 1],
-            numGrid[2 - r][c - 1],
-            numGrid[3 - r][c],
-            numGrid[2 - r][c]
-          ].sort((a, b) => a - b);
-          return {
-            key: `corner-${numbers.join("-")}`,
-            type: "corner",
-            numbers,
-            label: `زاوية ${numbers.join("-")}`
-          };
-        }
-
-        // Case B: Horizontal Split (only vertical boundary close)
-        if (nearColIdx !== -1) {
-          const c = nearColIdx;
-          let rowIdx = 0;
-          if (clickY >= 52 && clickY < 90) rowIdx = 2;
-          else if (clickY >= 90 && clickY < 128) rowIdx = 1;
-          const numbers = [numGrid[rowIdx][c - 1], numGrid[rowIdx][c]].sort((a, b) => a - b);
-          return {
-            key: `split-${numbers.join("-")}`,
-            type: "split",
-            numbers,
-            label: `تقسيم ${numbers.join("-")}`
-          };
-        }
-
-        // Case C: Vertical Split (only horizontal boundary close)
-        if (nearRowIdx !== -1) {
-          const r = nearRowIdx;
-          let colIdx = 0;
-          for (let c = 0; c < 12; c++) {
-            if (clickX >= colX[c] && clickX < colX[c+1]) {
-              colIdx = c;
-              break;
-            }
-          }
-          const numbers = [numGrid[2 - r][colIdx], numGrid[3 - r][colIdx]].sort((a, b) => a - b);
-          return {
-            key: `split-${numbers.join("-")}`,
-            type: "split",
-            numbers,
-            label: `تقسيم ${numbers.join("-")}`
-          };
-        }
-
-        // Case D: Straight Up Bet
-        let colIdx = 0;
-        for (let c = 0; c < 12; c++) {
-          if (clickX >= colX[c] && clickX < colX[c+1]) {
-            colIdx = c;
-            break;
-          }
-        }
-        let rowIdx = 0;
-        if (clickY >= 52 && clickY < 90) rowIdx = 2;
-        else if (clickY >= 90 && clickY < 128) rowIdx = 1;
-
-        const num = numGrid[rowIdx][colIdx];
-        return {
-          key: `straight-${num}`,
-          type: "straight",
-          numbers: [num],
-          label: `رقم ${num}`
-        };
-      }
-    }
-
-    // 3. Check if inside outer areas
-    const outerArea = findOuterArea(clickX, clickY);
-    if (outerArea) {
-      if (outerArea.type === "number") return null;
-      const numbers = getOuterAreaNumbers(outerArea.id);
-      return {
-        key: outerArea.id,
-        type: outerArea.type,
-        numbers,
-        label: outerArea.name
-      };
-    }
-
-    return null;
-  };
-
-  /* ─── Mouse Hover Highlights handler ─── */
-  const handleTableMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isSpinning) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const offsetY = e.clientY - rect.top;
-    
-    const clickX = (offsetX / rect.width) * 640;
-    const clickY = (offsetY / rect.height) * 282;
-
-    const betInfo = getBetFromCoordinates(clickX, clickY);
-    if (betInfo) {
-      const bbox = getAreaBoundingBox(betInfo.type, betInfo.key, betInfo.numbers);
-      if (bbox) {
-        setHoveredBet({
-          ...bbox,
-          label: betInfo.label
-        });
-        return;
-      }
-    }
-    setHoveredBet(null);
-  };
-
-  const handleTableMouseLeave = () => {
-    setHoveredBet(null);
-  };
-
-  /* ─── Table Click - Bet Placement Handler ─── */
-  const handleTableClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isSpinning) return;
-    
-    const rect = e.currentTarget.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const offsetY = e.clientY - rect.top;
-    
-    const clickX = (offsetX / rect.width) * 640;
-    const clickY = (offsetY / rect.height) * 282;
-
-    const betInfo = getBetFromCoordinates(clickX, clickY);
-    if (!betInfo) return;
-    
-    // Check balance
-    if (balance < selectedChip) {
-      setResultMsg("عذراً، الرصيد غير كافٍ!");
-      setResultCls("lose");
-      return;
-    }
-
-    setBalance(prev => prev - selectedChip);
-    
-    const bbox = getAreaBoundingBox(betInfo.type, betInfo.key, betInfo.numbers);
-    if (!bbox) return;
-
-    const chipPosition = getChipPosition(betInfo.key, betInfo.type, betInfo.numbers, bbox);
-
-    let updatedBets: Bet[] = [];
-
-    setBets(prev => {
-      // If same key exists, stack it
-      const existingIdx = prev.findIndex(b => b.key === betInfo.key);
-      if (existingIdx > -1) {
-        const updated = [...prev];
-        const newVal = updated[existingIdx].value + selectedChip;
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          value: newVal,
-          chipImg: getChipImg(Math.max(newVal, selectedChip))
-        };
-        updatedBets = updated;
-        return updated;
-      } else {
-        const newBet: Bet = {
-          id: betId.current++,
-          key: betInfo.key,
-          type: betInfo.type,
-          numbers: betInfo.numbers,
-          value: selectedChip,
-          chipImg: getChipImg(selectedChip),
-          left: chipPosition.left,
-          top: chipPosition.top,
-          label: betInfo.label
-        };
-        updatedBets = [...prev, newBet];
-        return updatedBets;
+  if (key.startsWith("split-")) {
+    const nums = key.slice(6).split("-").map(Number);
+    let sx = 0,
+      sy = 0,
+      count = 0;
+    nums.forEach((n) => {
+      const cc = areaCenter(String(n));
+      if (cc) {
+        sx += cc.x;
+        sy += cc.y;
+        count++;
       }
     });
+    return count > 0 ? { x: sx / count, y: sy / count } : null;
+  }
 
-    setResultMsg(`تم وضع $${selectedChip} على ${betInfo.label}`);
-    setResultCls("idle");
-    setSpinCountdown(AUTO_SPIN_SECONDS);
+  if (key.startsWith("corner-")) {
+    const nums = key.slice(7).split("-").map(Number);
+    let sx = 0,
+      sy = 0,
+      count = 0;
+    nums.forEach((n) => {
+      const cc = areaCenter(String(n));
+      if (cc) {
+        sx += cc.x;
+        sy += cc.y;
+        count++;
+      }
+    });
+    return count > 0 ? { x: sx / count, y: sy / count } : null;
+  }
 
-    // Asynchronously update Gemini live dealer commentary
-    setTimeout(() => {
-      fetchDealerComment("placed_bet", updatedBets);
-    }, 50);
-  };
+  if (key.startsWith("street-")) {
+    const nums = key.slice(7).split("-").map(Number);
+    if (nums.includes(0)) {
+      let sx = 0,
+        sy = 0,
+        count = 0;
+      nums.forEach((n) => {
+        const cc = areaCenter(String(n));
+        if (cc) {
+          sx += cc.x;
+          sy += cc.y;
+          count++;
+        }
+      });
+      return count > 0 ? { x: sx / count, y: sy / count } : null;
+    } else {
+      const bottomNum = nums.find((n) => TABLE_ROWS[2].includes(n));
+      if (bottomNum !== undefined) {
+        const r = areaRect(String(bottomNum));
+        if (r) {
+          return { x: (r.x1 + r.x2) / 2, y: r.y2 };
+        }
+      }
+    }
+  }
 
-  /* ─── Clear All Bets ─── */
-  const handleClearBets = () => {
-    if (isSpinning) return;
-    
-    // Refund placed bets
-    const totalRefund = bets.reduce((sum, b) => sum + b.value, 0);
-    setBalance(prev => prev + totalRefund);
-    setBets([]);
-    setSpinCountdown(null);
-    setResultMsg("تم مسح جميع الرهانات وإرجاع الرصيد.");
-    setResultCls("idle");
-    setDealerComment("تم مسح جميع الرهانات وإرجاع الرصيد. ضعوا رهانات جديدة للبدء!");
-  };
+  if (key.startsWith("sixline-")) {
+    const nums = key.slice(8).split("-").map(Number);
+    const bottomNums = nums
+      .filter((n) => TABLE_ROWS[2].includes(n))
+      .sort((a, b) => a - b);
+    if (bottomNums.length === 2) {
+      const r1 = areaRect(String(bottomNums[0]));
+      const r2 = areaRect(String(bottomNums[1]));
+      if (r1 && r2) {
+        return {
+          x: (r1.x2 + r2.x1) / 2,
+          y: (r1.y2 + r2.y2) / 2,
+        };
+      }
+    }
+  }
 
-  /* ─── Repeat Last Bets ─── */
-  const handleRepeatBets = () => {
-    if (isSpinning || lastBets.length === 0) return;
+  // Fallback: average any hyphenated numbers
+  const parts = key.split("-");
+  const nums = parts.slice(1).map(Number);
+  let sx = 0,
+    sy = 0,
+    count = 0;
+  nums.forEach((n) => {
+    const cc = areaCenter(String(n));
+    if (cc) {
+      sx += cc.x;
+      sy += cc.y;
+      count++;
+    }
+  });
+  return count > 0 ? { x: sx / count, y: sy / count } : null;
+}
 
-    // Calculate total required balance
-    const totalCost = lastBets.reduce((sum, b) => sum + b.value, 0);
-    if (balance < totalCost) {
-      setResultMsg("لا يوجد رصيد كافٍ لتكرار جميع الرهانات!");
-      setResultCls("lose");
+// ─── Types ──────────────────────────────────────────────────────────────────
+interface BetEntry {
+  amount: number;
+  chipCls: string;
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+const fmt = (n: number) =>
+  "$" +
+  n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const cloneBets = (source: Record<string, BetEntry>) =>
+  Object.fromEntries(
+    Object.entries(source).map(([key, bet]) => [key, { ...bet }]),
+  ) as Record<string, BetEntry>;
+
+const sumBets = (source: Record<string, BetEntry>) =>
+  Object.values(source).reduce((sum, bet) => sum + bet.amount, 0);
+
+function numColor(n: number | string): string {
+  if (n === 0 || n === "0") return "#0e4a22";
+  return RED_NUMS.has(Number(n)) ? "#8b1010" : "#141c28";
+}
+
+function lighten(hex: string, amt: number): string {
+  const rv = Math.min(255, parseInt(hex.slice(1, 3), 16) + amt);
+  const gv = Math.min(255, parseInt(hex.slice(3, 5), 16) + amt);
+  const bv = Math.min(255, parseInt(hex.slice(5, 7), 16) + amt);
+  return `rgb(${rv},${gv},${bv})`;
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+export default function Roulette() {
+  const [balance, setBalance] = useState(() => {
+    if (typeof window === "undefined") return 20000;
+    const stored = window.localStorage.getItem("roulette-balance");
+    const parsed = stored ? Number(stored) : NaN;
+    return Number.isFinite(parsed) ? parsed : 20000;
+  });
+  const [betVal, setBetVal] = useState(100);
+  const [chipValue, setChipValue] = useState(1);
+  const [chipCls, setChipCls] = useState("c1");
+  const [bets, setBets] = useState<Record<string, BetEntry>>({});
+  const [lastBets, setLastBets] = useState<Record<string, BetEntry>>({});
+  const [totalBet, setTotalBet] = useState(0);
+  const [betActive, setBetActive] = useState(false);
+  const [prevResults, setPrevResults] = useState<number[]>([]);
+  const [editMode, setEditMode] = useState(false);
+
+  const [spinning, setSpinning] = useState(false);
+  const [wheelExpanded, setWheelExpanded] = useState(false);
+  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
+  const [resultNum, setResultNum] = useState<number | null>(null);
+  const [resultLabel, setResultLabel] = useState("PLACE YOUR BET");
+  const [hoverTarget, setHoverTarget] = useState<
+    | {
+        key: string;
+        rect: { left: number; top: number; width: number; height: number };
+      }
+    | null
+  >(null);
+  const [notif, setNotif] = useState<{ msg: string; type: string } | null>(
+    null,
+  );
+
+  // Canvas / DOM refs
+  const wheelCanvasRef = useRef<HTMLCanvasElement>(null);
+  const ballRef = useRef<HTMLDivElement>(null);
+  const chipCanvasRef = useRef<HTMLCanvasElement>(null);
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+  const chipImagesRef = useRef<Record<string, HTMLImageElement>>({});
+  const prevResultsRef = useRef<number[]>(prevResults);
+
+  // Mutable animation refs
+  const wheelAngleRef = useRef(0);
+  const ballAngleRef = useRef(POINTER_ANGLE);
+  const betsRef = useRef(bets);
+  const lastBetsRef = useRef(lastBets);
+  const chipValueRef = useRef(chipValue);
+  const chipClsRef = useRef(chipCls);
+  const betActiveRef = useRef(betActive);
+  const balanceRef = useRef(balance);
+  const totalBetRef = useRef(totalBet);
+  const spinningRef = useRef(false);
+  const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    betsRef.current = bets;
+  }, [bets]);
+  useEffect(() => {
+    lastBetsRef.current = lastBets;
+  }, [lastBets]);
+  useEffect(() => {
+    chipValueRef.current = chipValue;
+  }, [chipValue]);
+  useEffect(() => {
+    chipClsRef.current = chipCls;
+  }, [chipCls]);
+  useEffect(() => {
+    betActiveRef.current = betActive;
+  }, [betActive]);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  useEffect(() => {
+    totalBetRef.current = totalBet;
+  }, [totalBet]);
+  useEffect(() => {
+    prevResultsRef.current = prevResults;
+  }, [prevResults]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("roulette-balance", String(balance));
+  }, [balance]);
+
+  const editModeRef = useRef(editMode);
+
+  useEffect(() => {
+    editModeRef.current = editMode;
+  }, [editMode]);
+
+  const showNotif = useCallback((msg: string, type: string) => {
+    setNotif({ msg, type });
+    if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
+    notifTimerRef.current = setTimeout(() => setNotif(null), 3500);
+  }, []);
+
+  // ── Draw wheel ────────────────────────────────────────────────────────────
+  const syncWheelCanvas = useCallback(() => {
+    const canvas = wheelCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+  }, []);
+
+  const drawWheel = useCallback((angle: number) => {
+    const canvas = wheelCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    const CW = canvas.width;
+    const CH = canvas.height;
+    const size = Math.min(CW, CH);
+    const CX = size / 2;
+    const CY = size / 2;
+    const R = size / 2 - 5;
+    ctx.clearRect(0, 0, CW, CH);
+
+    const rimGrad = ctx.createRadialGradient(
+      CX - R * 0.12,
+      CY - R * 0.12,
+      R - R * 0.09,
+      CX,
+      CY,
+      R + R * 0.02,
+    );
+    rimGrad.addColorStop(0, "#5a5a5a");
+    rimGrad.addColorStop(0.4, "#2a2a2a");
+    rimGrad.addColorStop(1, "#080808");
+    ctx.beginPath();
+    ctx.arc(CX, CY, R + 4, 0, 2 * Math.PI);
+    ctx.fillStyle = rimGrad;
+    ctx.fill();
+
+    const BO = R - 2,
+      BI = R - Math.round(R * 0.206);
+    for (let i = 0; i < NUM_SEGS; i++) {
+      const s = angle + i * SEG_ANGLE - Math.PI / 2,
+        e = s + SEG_ANGLE,
+        num = WHEEL_ORDER[i];
+      ctx.beginPath();
+      ctx.moveTo(CX + BI * Math.cos(s), CY + BI * Math.sin(s));
+      ctx.arc(CX, CY, BO, s, e);
+      ctx.arc(CX, CY, BI, e, s, true);
+      ctx.closePath();
+      const midA = s + SEG_ANGLE / 2,
+        shade = 0.82 + 0.18 * Math.cos(midA),
+        base = numColor(num);
+      const rv = parseInt(base.slice(1, 3), 16),
+        gv = parseInt(base.slice(3, 5), 16),
+        bv = parseInt(base.slice(5, 7), 16);
+      ctx.fillStyle = `rgb(${Math.round(rv * shade)},${Math.round(gv * shade)},${Math.round(bv * shade)})`;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(CX + BI * Math.cos(s), CY + BI * Math.sin(s));
+      ctx.lineTo(CX + BO * Math.cos(s), CY + BO * Math.sin(s));
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      const mid = s + SEG_ANGLE / 2,
+        lR = BI + (BO - BI) / 2;
+      ctx.save();
+      ctx.translate(CX + lR * Math.cos(mid), CY + lR * Math.sin(mid));
+      ctx.rotate(mid + Math.PI / 2);
+      ctx.fillStyle = "#fff";
+      ctx.font = `bold ${Math.max(10, Math.round(R * 0.055))}px "Orbitron",monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.9)";
+      ctx.shadowBlur = Math.max(2, Math.round(R * 0.02));
+      ctx.fillText(String(num), 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+    const TR = BI - 2;
+    ctx.beginPath();
+    ctx.arc(CX, CY, TR, 0, 2 * Math.PI);
+    const tG = ctx.createRadialGradient(CX, CY, TR - 30, CX, CY, TR);
+    tG.addColorStop(0, "#1a1a1a");
+    tG.addColorStop(1, "#2e2e2e");
+    ctx.fillStyle = tG;
+    ctx.fill();
+    ctx.strokeStyle = "#3a3a3a";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    for (let i = 0; i < NUM_SEGS; i++) {
+      const a = angle + i * SEG_ANGLE - Math.PI / 2;
+      const fx = CX + (TR - 2) * Math.cos(a),
+        fy = CY + (TR - 2) * Math.sin(a);
+      ctx.save();
+      ctx.translate(fx, fy);
+      ctx.rotate(a);
+      ctx.fillStyle = "#888";
+      ctx.beginPath();
+      ctx.moveTo(0, -3);
+      ctx.lineTo(2, 0);
+      ctx.lineTo(0, 3);
+      ctx.lineTo(-2, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    const CR = TR - 20;
+    ctx.beginPath();
+    ctx.arc(CX, CY, CR, 0, 2 * Math.PI);
+    const cG = ctx.createRadialGradient(CX - R * 0.06, CY - R * 0.06, R * 0.03, CX, CY, CR);
+    cG.addColorStop(0, "#2a2a2a");
+    cG.addColorStop(0.6, "#141414");
+    cG.addColorStop(1, "#0a0a0a");
+    ctx.fillStyle = cG;
+    ctx.fill();
+    for (let i = 0; i < 8; i++) {
+      const a = angle + i * (Math.PI / 4);
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.lineTo(CX + (CR - 2) * Math.cos(a), CY + (CR - 2) * Math.sin(a));
+      ctx.strokeStyle = "rgba(60,60,60,0.6)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    const hubG = ctx.createRadialGradient(CX - R * 0.047, CY - R * 0.047, R * 0.012, CX, CY, R * 0.154);
+    hubG.addColorStop(0, "#444");
+    hubG.addColorStop(0.5, "#1a1a1a");
+    hubG.addColorStop(1, "#080808");
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * 0.16, 0, 2 * Math.PI);
+    ctx.fillStyle = hubG;
+    ctx.fill();
+    ctx.strokeStyle = "#3a3a3a";
+    ctx.lineWidth = Math.max(1.5, R * 0.01);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * 0.085, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#2a2a2a";
+    ctx.lineWidth = Math.max(1, R * 0.0075);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(CX - R * 0.047, CY - R * 0.047, R * 0.047, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fill();
+  }, []);
+
+  const setBallPosition = useCallback((angle: number, radius: number) => {
+    const canvas = wheelCanvasRef.current;
+    const ball = ballRef.current;
+    if (!canvas || !ball) return;
+    const rect = canvas.getBoundingClientRect();
+    const wheelSize = Math.min(rect.width, rect.height);
+    const wheelCenter = wheelSize / 2;
+    const x = wheelCenter + Math.cos(angle) * radius;
+    const y = wheelCenter + Math.sin(angle) * radius;
+    ball.style.left = `${x}px`;
+    ball.style.top = `${y}px`;
+    ball.style.transform = "translate(-50%, -50%)";
+  }, []);
+
+  useEffect(() => {
+    syncWheelCanvas();
+    drawWheel(0);
+    const rect = wheelCanvasRef.current?.getBoundingClientRect();
+    if (rect) {
+      const wheelCenter = Math.min(rect.width, rect.height) / 2;
+      const BALL_INNER = wheelCenter - 18;
+      const BALL_FINAL = BALL_INNER - 6;
+      setBallPosition(POINTER_ANGLE, BALL_FINAL);
+    }
+  }, [drawWheel, syncWheelCanvas, setBallPosition]);
+
+  useEffect(() => {
+    syncWheelCanvas();
+    drawWheel(wheelAngleRef.current);
+    const rect = wheelCanvasRef.current?.getBoundingClientRect();
+    if (rect) {
+      const wheelCenter = Math.min(rect.width, rect.height) / 2;
+      const BALL_INNER = wheelCenter - 18;
+      const BALL_FINAL = BALL_INNER - 6;
+      setBallPosition(POINTER_ANGLE, BALL_FINAL);
+    }
+  }, [wheelExpanded, syncWheelCanvas, drawWheel, setBallPosition]);
+
+  // ── Render chips + last-10 results on canvas overlaid on the SVG table ───
+  const renderChips = useCallback(
+    (currentBets: Record<string, BetEntry>, last10: number[]) => {
+      const canvas = chipCanvasRef.current;
+      const wrap = tableWrapRef.current;
+      if (!canvas || !wrap) return;
+      const ctx = canvas.getContext("2d")!;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // The canvas matches the wrap div (which contains the SVG scaled to 100%)
+      const displayW = wrap.clientWidth;
+      const displayH = wrap.clientHeight;
+      const scaleX = displayW / SVG_W;
+      const scaleY = displayH / SVG_H;
+
+      const slotSizes = LAST10_SLOTS.slice(0, 10)
+        .map((slot) => {
+          if (!slot) return null;
+          const x1 = Math.min(slot.coords[0], slot.coords[2]) * SCALE_X * scaleX;
+          const y1 = Math.min(slot.coords[1], slot.coords[3]) * SCALE_Y * scaleY;
+          const x2 = Math.max(slot.coords[0], slot.coords[2]) * SCALE_X * scaleX;
+          const y2 = Math.max(slot.coords[1], slot.coords[3]) * SCALE_Y * scaleY;
+          return { w: x2 - x1, h: y2 - y1 };
+        })
+        .filter((s): s is { w: number; h: number } => Boolean(s));
+      const fixedW = Math.max(18, Math.min(...slotSizes.map((s) => s.w)) * 0.88);
+      const fixedH = Math.max(18, Math.min(...slotSizes.map((s) => s.h)) * 0.88);
+
+      // ── Draw last-10 result numbers in the SVG slots (right-to-left) ────────
+      last10.slice(0, 10).forEach((n, i) => {
+        const raw = LAST10_SLOTS[i]?.coords;
+        if (!raw) return;
+        const x1 = Math.min(raw[0], raw[2]) * SCALE_X * scaleX;
+        const y1 = Math.min(raw[1], raw[3]) * SCALE_Y * scaleY;
+        const x2 = Math.max(raw[0], raw[2]) * SCALE_X * scaleX;
+        const y2 = Math.max(raw[1], raw[3]) * SCALE_Y * scaleY;
+        const cx = x1 + (x2 - x1) / 2;
+        const cy = y1 + (y2 - y1) / 2;
+        const bw = fixedW;
+        const bh = fixedH;
+        const px = cx - bw / 2;
+        const py = cy - bh / 2;
+
+        // Background fill
+        const bgCol =
+          n === 0 ? "#1a6b35" : RED_NUMS.has(n) ? "#8b1010" : "#141c28";
+        ctx.fillStyle = bgCol;
+        ctx.beginPath();
+        ctx.roundRect(px, py, bw, bh, 3);
+        ctx.fill();
+
+        ctx.strokeStyle = i === 0 ? "#7ce5cc" : "#838383";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.roundRect(px, py, bw, bh, 3);
+        ctx.stroke();
+
+        // Number text
+        const fontSize = Math.max(7, Math.min(11, bh * 0.52));
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `bold ${fontSize}px "Orbitron",monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(n), cx, cy);
+      });
+
+      const drawChipAt = (
+        svgX: number,
+        svgY: number,
+        amount: number,
+        cls: string,
+      ) => {
+        const cx = svgX * scaleX;
+        const cy = svgY * scaleY;
+        const img = chipImagesRef.current[cls];
+        const rad = 19;
+
+        if (img && img.complete && img.naturalWidth !== 0) {
+          ctx.beginPath();
+          ctx.arc(cx, cy + 2, rad, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(0,0,0,0.4)";
+          ctx.fill();
+          ctx.drawImage(img, cx - rad, cy - rad, rad * 2, rad * 2);
+        } else {
+          const col = CHIP_COLORS[cls] || "#555";
+          ctx.beginPath();
+          ctx.arc(cx, cy + 2, rad, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(0,0,0,0.4)";
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(cx, cy, rad, 0, 2 * Math.PI);
+          const g = ctx.createRadialGradient(cx - 4, cy - 4, 2, cx, cy, rad);
+          g.addColorStop(0, lighten(col, 50));
+          g.addColorStop(1, col);
+          ctx.fillStyle = g;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(cx, cy, rad - 4, 0, 2 * Math.PI);
+          ctx.strokeStyle = "rgba(255,255,255,0.25)";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        const lbl =
+          amount >= 1000 ? (amount / 1000).toFixed(0) + "K" : String(amount);
+        ctx.fillStyle = "#fff";
+        ctx.font = 'bold 11px "Orbitron",monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.strokeStyle = "rgba(39, 39, 39, 0.35)";
+        ctx.lineWidth = 5;
+        ctx.strokeText(lbl, cx, cy);
+        ctx.fillText(lbl, cx, cy);
+      };
+
+      for (const [key, bet] of Object.entries(currentBets)) {
+        const pos = getChipPos(key);
+        if (pos) {
+          drawChipAt(pos.x, pos.y, bet.amount, bet.chipCls);
+        }
+      }
+    },
+    [],
+  );
+
+  // Sync chip canvas size to wrapper
+  const syncCanvas = useCallback(() => {
+    const canvas = chipCanvasRef.current;
+    const wrap = tableWrapRef.current;
+    if (!canvas || !wrap) return;
+    canvas.width = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+    canvas.style.width = wrap.clientWidth + "px";
+    canvas.style.height = wrap.clientHeight + "px";
+  }, []);
+
+  useEffect(() => {
+    const urls: Record<string, string> = {
+      c1: "/roulette/1_chip.svg",
+      c2: "/roulette/2_chip.svg",
+      c5: "/roulette/5_chip.svg",
+      c25: "/roulette/25_chip.svg",
+      c50: "/roulette/50_chip.svg",
+      c100: "/roulette/100_chip.svg",
+    };
+    const images: Record<string, HTMLImageElement> = {};
+    Object.entries(urls).forEach(([cls, url]) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => {
+        if (tableWrapRef.current) {
+          renderChips(betsRef.current, prevResultsRef.current);
+        }
+      };
+      images[cls] = img;
+    });
+    chipImagesRef.current = images;
+  }, [renderChips]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      syncCanvas();
+      syncWheelCanvas();
+      drawWheel(wheelAngleRef.current);
+      renderChips(betsRef.current, prevResultsRef.current);
+    }, 120);
+    const onResize = () =>
+      setTimeout(() => {
+        syncCanvas();
+        syncWheelCanvas();
+        drawWheel(wheelAngleRef.current);
+        renderChips(betsRef.current, prevResultsRef.current);
+      }, 120);
+    window.addEventListener("resize", onResize);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [syncCanvas, syncWheelCanvas, drawWheel, renderChips]);
+
+  useEffect(() => {
+    const t = setTimeout(() => renderChips(bets, prevResultsRef.current), 30);
+    return () => clearTimeout(t);
+  }, [bets, renderChips]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      syncCanvas();
+      renderChips(betsRef.current, prevResultsRef.current);
+    }, 260);
+    return () => clearTimeout(t);
+  }, [sidePanelCollapsed, syncCanvas, renderChips]);
+
+  // Re-draw canvas whenever prevResults changes (new spin result)
+  useEffect(() => {
+    if (prevResults.length > 0) {
+      const t = setTimeout(() => renderChips(betsRef.current, prevResults), 30);
+      return () => clearTimeout(t);
+    }
+  }, [prevResults, renderChips]);
+
+  // ── Add bet ───────────────────────────────────────────────────────────────
+  const addBet = useCallback((key: string) => {
+    const amount = chipValueRef.current;
+    const currentBet = betsRef.current[key];
+
+    if (currentBet) {
+      if (!editModeRef.current) {
+        if (balanceRef.current < amount) {
+          showNotif("Insufficient balance!", "lose");
+          return;
+        }
+
+        const next = cloneBets(betsRef.current);
+        next[key] = {
+          amount: next[key].amount + amount,
+          chipCls: chipClsRef.current,
+        };
+
+        const nextBalance = balanceRef.current - amount;
+        const nextTotal = totalBetRef.current + amount;
+        betsRef.current = next;
+        balanceRef.current = nextBalance;
+        totalBetRef.current = nextTotal;
+        betActiveRef.current = true;
+
+        setBets(next);
+        setBalance(nextBalance);
+        setTotalBet(nextTotal);
+        setBetActive(true);
+        showNotif("Added more chips to this bet.", "win");
+        return;
+      }
+
+      const next = cloneBets(betsRef.current);
+      const removeAmount = Math.min(amount, next[key].amount);
+      const updatedAmount = next[key].amount - removeAmount;
+
+      if (updatedAmount <= 0) {
+        delete next[key];
+      } else {
+        next[key] = { amount: updatedAmount, chipCls: next[key].chipCls };
+      }
+
+      const nextBalance = balanceRef.current + removeAmount;
+      const nextTotal = Math.max(0, totalBetRef.current - removeAmount);
+      betsRef.current = next;
+      balanceRef.current = nextBalance;
+      totalBetRef.current = nextTotal;
+      betActiveRef.current = Object.keys(next).length > 0;
+
+      setBets(next);
+      setBalance(nextBalance);
+      setTotalBet(nextTotal);
+      setBetActive(Object.keys(next).length > 0);
+      showNotif("Removed bet in edit mode.", "");
       return;
     }
 
-    // Clear current bets first and refund them
-    const currentRefund = bets.reduce((sum, b) => sum + b.value, 0);
-    
-    // Apply refund and cost
-    setBalance(prev => prev + currentRefund - totalCost);
-    
-    const repeated = lastBets.map(b => ({
-      ...b,
-      id: betId.current++
-    }));
+    if (balanceRef.current < amount) {
+      showNotif("Insufficient balance!", "lose");
+      return;
+    }
 
-    // Apply last bets
-    setBets(repeated);
-    setSpinCountdown(AUTO_SPIN_SECONDS);
+    const next = cloneBets(betsRef.current);
+    next[key] = { amount, chipCls: chipClsRef.current };
 
-    setResultMsg("تمت إعادة تطبيق رهانات الجولة السابقة.");
-    setResultCls("idle");
+    const nextBalance = balanceRef.current - amount;
+    const nextTotal = totalBetRef.current + amount;
+    betsRef.current = next;
+    balanceRef.current = nextBalance;
+    totalBetRef.current = nextTotal;
+    betActiveRef.current = true;
 
-    setTimeout(() => {
-      fetchDealerComment("placed_bet", repeated);
-    }, 50);
-  };
+    setBets(next);
+    setBalance(nextBalance);
+    setTotalBet(nextTotal);
+    setBetActive(true);
+  }, [showNotif]);
 
-  /* ─── Precise Ball Landing Angle Calculator ─── */
-  const getBallAngle = (num: number) => {
-    const pocket = WHEEL_POCKETS[getVisualPocketNumber(num)] ?? WHEEL_POCKETS[0];
-    return Math.atan2(pocket.y - WHEEL_CENTER.y, pocket.x - WHEEL_CENTER.x) * 180 / Math.PI;
-  };
+  const clearBets = useCallback(() => {
+    const currentTotal = totalBetRef.current;
+    if (currentTotal > 0 && !spinningRef.current) {
+      const snapshot = cloneBets(betsRef.current);
+      if (Object.keys(snapshot).length > 0) {
+        lastBetsRef.current = snapshot;
+        setLastBets(snapshot);
+      }
+      const nextBalance = balanceRef.current + currentTotal;
+      balanceRef.current = nextBalance;
+      setBalance(nextBalance);
+    }
+    betsRef.current = {};
+    totalBetRef.current = 0;
+    betActiveRef.current = false;
+    setBets({});
+    setTotalBet(0);
+    setBetActive(false);
+  }, []);
 
-  const getBallOrbitRotation = (num: number) => {
-    return 360 * 6 + getBallAngle(num);
-  };
+  const repeatBets = useCallback(() => {
+    const repeat = cloneBets(lastBetsRef.current);
+    const repeatTotal = sumBets(repeat);
+    if (repeatTotal <= 0) {
+      showNotif("No previous bets to repeat.", "");
+      return;
+    }
+    if (balanceRef.current < repeatTotal) {
+      showNotif("Insufficient balance!", "lose");
+      return;
+    }
 
-  const getBallPosition = (num: number) => {
-    const pocket = WHEEL_POCKETS[getVisualPocketNumber(num)] ?? WHEEL_POCKETS[0];
-    
+    const next = cloneBets(betsRef.current);
+    Object.entries(repeat).forEach(([key, bet]) => {
+      if (!next[key]) next[key] = { amount: 0, chipCls: bet.chipCls };
+      next[key] = {
+        amount: next[key].amount + bet.amount,
+        chipCls: bet.chipCls,
+      };
+    });
+
+    const nextBalance = balanceRef.current - repeatTotal;
+    const nextTotal = totalBetRef.current + repeatTotal;
+    betsRef.current = next;
+    balanceRef.current = nextBalance;
+    totalBetRef.current = nextTotal;
+    betActiveRef.current = true;
+
+    setBets(next);
+    setBalance(nextBalance);
+    setTotalBet(nextTotal);
+    setBetActive(true);
+    showNotif("Repeated bets: " + fmt(repeatTotal), "win");
+  }, [showNotif]);
+
+  // ── Smart table click: hit-test against SVG area-map rects ───────────────
+  const BORDER_T = 9; // pixels in SVG space for border detection
+
+  const rectUnion = (
+    rects: { x1: number; y1: number; x2: number; y2: number }[],
+  ) => {
+    if (!rects.length) return null;
     return {
-      left: (pocket.x / 640) * 100,
-      top: (pocket.y / 282) * 100,
-      width: ((pocket.r * 2) / 640) * 100,
-      height: ((pocket.r * 2) / 282) * 100,
+      x1: Math.min(...rects.map((r) => r.x1)),
+      y1: Math.min(...rects.map((r) => r.y1)),
+      x2: Math.max(...rects.map((r) => r.x2)),
+      y2: Math.max(...rects.map((r) => r.y2)),
     };
   };
 
-  /* ─── Spin the Wheel ─── */
-  const handleSpin = () => {
-    if (isSpinning) return;
-    if (bets.length === 0) {
-      setResultMsg("يرجى وضع رهان واحد على الأقل للبدء!");
-      setResultCls("lose");
-      return;
+  const getBetRect = useCallback((key: string) => {
+    const direct = areaRect(key);
+    if (direct) return direct;
+    for (const prefix of ["split-", "street-", "corner-", "sixline-"]) {
+      if (!key.startsWith(prefix)) continue;
+      const nums = key.slice(prefix.length).split("-").map(Number);
+      const rects = nums
+        .map((n) => areaRect(String(n)))
+        .filter((r): r is { x1: number; y1: number; x2: number; y2: number } =>
+          Boolean(r),
+        );
+      return rectUnion(rects);
     }
+    return null;
+  }, []);
 
-    setIsSpinning(true);
-    setSpinCountdown(null);
-    setWinningNumber(null);
-    setWinOverlay(null);
-    setResultMsg("عجلة الروليت تدور... بالتوفيق!");
-    setResultCls("idle");
+  const computeHitArea = useCallback((mx: number, my: number) => {
+    for (const key of Object.keys(RAW_AREAS)) {
+      const r = areaRect(key);
+      if (!r) continue;
+      if (mx >= r.x1 && mx <= r.x2 && my >= r.y1 && my <= r.y2) {
+        return { key, rect: r };
+      }
+    }
+    return null;
+  }, []);
 
-    // Shouting 'No More Bets' instantly
-    setDealerComment("⚠️ لا مزيد من الرهانات! (No More Bets) تدور العجلة الآن!");
-    fetchDealerComment("spinning", bets);
-
-    // Keep active bets reference for payouts
-    const activeBets = bets;
-
-    // Choose random number (0-36)
-    const luckyIndex = Math.floor(Math.random() * WHEEL_NUMBERS.length);
-    const rolled = WHEEL_NUMBERS[luckyIndex];
-    setSpinTargetNumber(rolled);
-
-    setTimeout(() => {
-      setIsSpinning(false);
-      setSpinTargetNumber(null);
-      setWinningNumber(rolled);
-      
-      // Save bets for Rebet option
-      setLastBets(activeBets);
-
-      // Judge bets
-      let totalWin = 0;
-      const rollColor = getNumberColor(rolled);
-
-      activeBets.forEach((bet) => {
-        const isWin = bet.numbers.includes(rolled);
-        if (isWin) {
-          let multiplier = 0;
-          switch (bet.type) {
-            case "zero":
-            case "straight":
-              multiplier = 35;
-              break;
-            case "split":
-              multiplier = 17;
-              break;
-            case "street":
-              multiplier = 11;
-              break;
-            case "sixline":
-              multiplier = 5;
-              break;
-            case "corner":
-              multiplier = 8;
-              break;
-            case "dozen":
-            case "column":
-              multiplier = 2;
-              break;
-            case "color":
-            case "parity":
-            case "half":
-              multiplier = 1;
-              break;
-          }
-          totalWin += bet.value + (bet.value * multiplier);
-        }
-      });
-
-      // Update history
-      setHistory(prev => [rolled, ...prev].slice(0, 10));
-
-      const totalBetAmount = activeBets.reduce((sum, b) => sum + b.value, 0);
-      
-      // Calculate net earnings
-      if (totalWin > 0) {
-        setBalance(prev => prev + totalWin);
-        setResultMsg(`🎉 الرقم الفائز: ${rolled} (${rollColor === "red" ? "أحمر" : rollColor === "black" ? "أسود" : "أخضر"}). ربحت $${totalWin}! 🎉`);
-        setResultCls("win");
-        
-        const winColor = rollColor === "red" ? "#f87171" : rollColor === "black" ? "#94a3b8" : "#4ade80";
-        setWinOverlay({
-          text: `🎰 ${rolled}`,
-          color: winColor,
-          sub: `ربحت +$${totalWin - totalBetAmount}`
-        });
-
-        spawnConfetti(winColor);
-        setTimeout(() => setWinOverlay(null), 2500);
-      } else {
-        setResultMsg(`الرقم الفائز: ${rolled} (${rollColor === "red" ? "أحمر" : rollColor === "black" ? "أسود" : "أخضر"}). حظاً أوفر في الجولة القادمة!`);
-        setResultCls("lose");
-        
-        setWinOverlay({
-          text: `💔 ${rolled}`,
-          color: "#f87171",
-          sub: `خسرت -$${totalBetAmount}`
-        });
-        setTimeout(() => setWinOverlay(null), 1800);
+  const resolveTableBet = useCallback(
+    (
+      hitKey: string,
+      hitR: { x1: number; y1: number; x2: number; y2: number },
+      mx: number,
+      my: number,
+    ) => {
+      if (!/^\d+$/.test(hitKey)) {
+        return { key: hitKey, rect: hitR };
       }
 
-      // Clear bets for the next round
-      setBets([]);
+      const num = parseInt(hitKey, 10);
+      if (num === 0) {
+        const relX = mx - hitR.x1;
+        const cellW = hitR.x2 - hitR.x1;
+        const atRight = relX > cellW - BORDER_T;
+        if (atRight) {
+          const target = my < 194 ? "split-0-3" : my < 260 ? "split-0-2" : "split-0-1";
+          const targetRect = getBetRect(target) ?? hitR;
+          return { key: target, rect: targetRect };
+        }
+        return { key: "0", rect: hitR };
+      }
 
-      // Fetch live AI dealer comment on rolled results
-      fetchDealerComment("result", activeBets, rolled, totalWin);
+      const relX = mx - hitR.x1;
+      const relY = my - hitR.y1;
+      const cellW = hitR.x2 - hitR.x1;
+      const cellH = hitR.y2 - hitR.y1;
+      const atLeft = relX < BORDER_T;
+      const atRight = relX > cellW - BORDER_T;
+      const atTop = relY < BORDER_T;
+      const atBottom = relY > cellH - BORDER_T;
 
-    }, SPIN_DURATION_MS);
-  };
+      const rowIdx = TABLE_ROWS.findIndex((row) => row.includes(num));
+      const colIdx = rowIdx >= 0 ? TABLE_ROWS[rowIdx].indexOf(num) : -1;
+      if (rowIdx < 0 || colIdx < 0) {
+        return { key: hitKey, rect: hitR };
+      }
 
-  /* ─── Reset Game ─── */
-  const handleReset = () => {
-    if (isSpinning) return;
-    setBalance(2000);
-    setBets([]);
-    setHistory([]);
-    setWinningNumber(null);
-    setSpinTargetNumber(null);
-    setSpinCountdown(null);
-    setWinOverlay(null);
-    setLastBets([]);
-    setResultMsg("تمت إعادة تهيئة اللعبة ورصيدك $2000.");
-    setResultCls("idle");
-    setDealerComment("أهلاً بكم مجدداً! تم إعادة تهيئة رصيدكم إلى $2,000. ضعوا رهاناتكم للبدء.");
-  };
+      if ((atLeft || atRight) && (atTop || atBottom)) {
+        const adjRow = atTop ? rowIdx - 1 : rowIdx + 1;
+        const adjCol = atLeft ? colIdx - 1 : colIdx + 1;
 
-  const totalBet = bets.reduce((sum, b) => sum + b.value, 0);
+        if (adjRow >= 0 && adjRow < 3 && adjCol >= 0 && adjCol < 12) {
+          const n2 = TABLE_ROWS[rowIdx][adjCol];
+          const n3 = TABLE_ROWS[adjRow][colIdx];
+          const n4 = TABLE_ROWS[adjRow][adjCol];
+          const nums = [num, n2, n3, n4].sort((a, b) => a - b);
+          const target = "corner-" + nums.join("-");
+          return { key: target, rect: getBetRect(target) ?? hitR };
+        }
 
-  useEffect(() => {
-    spinNowRef.current = handleSpin;
-  });
+        if (adjCol === -1 && adjRow >= 0 && adjRow < 3) {
+          const n2 = TABLE_ROWS[adjRow][colIdx];
+          const nums = [0, num, n2].sort((a, b) => a - b);
+          const target = "street-" + nums.join("-");
+          return { key: target, rect: getBetRect(target) ?? hitR };
+        }
 
-  useEffect(() => {
-    if (isSpinning || bets.length === 0 || spinCountdown === null) {
+        if ((adjRow === -1 || adjRow === 3) && adjCol >= 0 && adjCol < 12) {
+          const nums1 = [
+            TABLE_ROWS[0][colIdx],
+            TABLE_ROWS[1][colIdx],
+            TABLE_ROWS[2][colIdx],
+          ];
+          const nums2 = [
+            TABLE_ROWS[0][adjCol],
+            TABLE_ROWS[1][adjCol],
+            TABLE_ROWS[2][adjCol],
+          ];
+          const allNums = [...nums1, ...nums2].sort((a, b) => a - b);
+          const target = "sixline-" + allNums.join("-");
+          return { key: target, rect: getBetRect(target) ?? hitR };
+        }
+
+        if (adjCol === -1) {
+          const target = "split-0-" + num;
+          return { key: target, rect: getBetRect(target) ?? hitR };
+        }
+      }
+
+      if (atTop || atBottom) {
+        const adjRow = atTop ? rowIdx - 1 : rowIdx + 1;
+        if (adjRow >= 0 && adjRow < 3) {
+          const nb = TABLE_ROWS[adjRow][colIdx];
+          const target = "split-" + Math.min(num, nb) + "-" + Math.max(num, nb);
+          return { key: target, rect: getBetRect(target) ?? hitR };
+        }
+        const nums = [
+          TABLE_ROWS[0][colIdx],
+          TABLE_ROWS[1][colIdx],
+          TABLE_ROWS[2][colIdx],
+        ].sort((a, b) => a - b);
+        const target = "street-" + nums.join("-");
+        return { key: target, rect: getBetRect(target) ?? hitR };
+      }
+
+      if (atLeft || atRight) {
+        const adjCol = atLeft ? colIdx - 1 : colIdx + 1;
+        if (adjCol >= 0 && adjCol < 12) {
+          const nb = TABLE_ROWS[rowIdx][adjCol];
+          const target = "split-" + Math.min(num, nb) + "-" + Math.max(num, nb);
+          return { key: target, rect: getBetRect(target) ?? hitR };
+        }
+        if (adjCol === -1) {
+          const target = "split-0-" + num;
+          return { key: target, rect: getBetRect(target) ?? hitR };
+        }
+      }
+
+      return { key: hitKey, rect: hitR };
+    },
+    [getBetRect],
+  );
+
+  const onTableClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (spinningRef.current) {
+        showNotif("No more bets while spinning.", "");
+        return;
+      }
+
+      const wrap = tableWrapRef.current;
+      if (!wrap) return;
+      const rect = wrap.getBoundingClientRect();
+      const displayW = wrap.clientWidth;
+      const displayH = wrap.clientHeight;
+      const mx = ((e.clientX - rect.left) / displayW) * SVG_W;
+      const my = ((e.clientY - rect.top) / displayH) * SVG_H;
+
+      const hit = computeHitArea(mx, my);
+      if (!hit) return;
+      const resolved = resolveTableBet(hit.key, hit.rect, mx, my);
+      if (!resolved) return;
+      addBet(resolved.key);
+    },
+    [addBet, computeHitArea, resolveTableBet, showNotif],
+  );
+
+  const onTableHover = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const wrap = tableWrapRef.current;
+      if (!wrap) return;
+      const rect = wrap.getBoundingClientRect();
+      const displayW = wrap.clientWidth;
+      const displayH = wrap.clientHeight;
+      const mx = ((e.clientX - rect.left) / displayW) * SVG_W;
+      const my = ((e.clientY - rect.top) / displayH) * SVG_H;
+
+      const hit = computeHitArea(mx, my);
+      if (!hit) {
+        setHoverTarget(null);
+        return;
+      }
+      const resolved = resolveTableBet(hit.key, hit.rect, mx, my);
+      if (!resolved) {
+        setHoverTarget(null);
+        return;
+      }
+      const scaleX = displayW / SVG_W;
+      const scaleY = displayH / SVG_H;
+      setHoverTarget({
+        key: resolved.key,
+        rect: {
+          left: resolved.rect.x1 * scaleX,
+          top: resolved.rect.y1 * scaleY,
+          width: (resolved.rect.x2 - resolved.rect.x1) * scaleX,
+          height: (resolved.rect.y2 - resolved.rect.y1) * scaleY,
+        },
+      });
+    },
+    [computeHitArea, resolveTableBet],
+  );
+
+  // ── Calculate win ─────────────────────────────────────────────────────────
+  const calcWin = useCallback((key: string, winNum: number): number => {
+    if (key === String(winNum)) return 35;
+    if (key.startsWith("split-"))
+      return key.slice(6).split("-").map(Number).includes(winNum) ? 17 : 0;
+    if (key.startsWith("street-"))
+      return key.slice(7).split("-").map(Number).includes(winNum) ? 11 : 0;
+    if (key.startsWith("corner-"))
+      return key.slice(7).split("-").map(Number).includes(winNum) ? 8 : 0;
+    if (key.startsWith("sixline-"))
+      return key.slice(8).split("-").map(Number).includes(winNum) ? 5 : 0;
+    if (key.startsWith("col-")) {
+      const ri = parseInt(key.slice(4));
+      return winNum > 0 && TABLE_ROWS[ri]?.includes(winNum) ? 2 : 0;
+    }
+    if (key === "doz-1" && winNum >= 1 && winNum <= 12) return 2;
+    if (key === "doz-2" && winNum >= 13 && winNum <= 24) return 2;
+    if (key === "doz-3" && winNum >= 25 && winNum <= 36) return 2;
+    if (key === "1to18" && winNum >= 1 && winNum <= 18) return 1;
+    if (key === "19to36" && winNum >= 19 && winNum <= 36) return 1;
+    if (key === "even" && winNum > 0 && winNum % 2 === 0) return 1;
+    if (key === "odd" && winNum > 0 && winNum % 2 !== 0) return 1;
+    if (key === "red" && RED_NUMS.has(winNum)) return 1;
+    if (key === "black" && winNum > 0 && !RED_NUMS.has(winNum)) return 1;
+    return 0;
+  }, []);
+
+  // ── Spin ──────────────────────────────────────────────────────────────────
+  const spin = useCallback(() => {
+    if (spinningRef.current) return;
+    if (!betActiveRef.current) {
+      showNotif("Place a bet first!", "");
       return;
     }
+    spinningRef.current = true;
+    setSpinning(true);
+    setWheelExpanded(true);
+    setResultNum(null);
+    setResultLabel("SPINNING…");
+    const spinBets = cloneBets(betsRef.current);
+    lastBetsRef.current = spinBets;
+    setLastBets(spinBets);
 
-    const timeout = window.setTimeout(() => {
-      setSpinCountdown((current) => {
-        if (current === null) return null;
-        if (current <= 1) {
-          spinNowRef.current();
-          return null;
+    // ── Wheel geometry (must match drawWheel constants) ──────────────────────
+    // R=165, BO=R-2=163, BI=R-34=131
+    // Segments drawn at: angle + i*SEG_ANGLE - π/2  (offset by -π/2)
+    //
+    // Ball track:
+    //   OUTER = 158  →  outside the number ring (the ball rolls here first)
+    //   INNER = 147  →  inside the number ring (ball drops here at the end)
+    //
+    // The pointer is FIXED at the TOP of the wheel  →  screen angle -π/2
+    //
+    // ── Wheel target ────────────────────────────────────────────────────────
+    // We want the CENTER of winSegIdx to sit at the pointer (screen angle -π/2).
+    // A segment i has its start drawn at:  wAngle + i*SEG_ANGLE - π/2
+    // Its center is at:  wAngle + i*SEG_ANGLE + SEG_ANGLE/2 - π/2
+    // We want that = -π/2  ⟹  wAngle = -(i*SEG_ANGLE + SEG_ANGLE/2)
+    //
+    // Ball orbits COUNTER-CLOCKWISE (opposite the wheel) and also stops at -π/2.
+
+    const winSegIdx = Math.floor(Math.random() * NUM_SEGS);
+    const chosenWinNum = WHEEL_ORDER[winSegIdx];
+
+    const normalizeAngle = (a: number) => {
+      const full = 2 * Math.PI;
+      return ((a % full) + full) % full;
+    };
+    const pointerIndexFromAngle = (wheelAngle: number) => {
+      const norm = normalizeAngle(wheelAngle);
+      const raw = -(norm + SEG_ANGLE / 2) / SEG_ANGLE;
+      const rounded = Math.round(raw);
+      return ((rounded % NUM_SEGS) + NUM_SEGS) % NUM_SEGS;
+    };
+
+    // ── Wheel final angle ────────────────────────────────────────────────────
+    const curWA = wheelAngleRef.current;
+    const extraWheelSpins = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+
+    const targetWA = -(winSegIdx * SEG_ANGLE + SEG_ANGLE / 2);
+    const delta = normalizeAngle(targetWA - curWA);
+    let finalWA = curWA + extraWheelSpins + delta;
+
+    const finalTargetIndex = pointerIndexFromAngle(finalWA);
+    if (finalTargetIndex !== winSegIdx) {
+      finalWA += (winSegIdx - finalTargetIndex) * SEG_ANGLE;
+    }
+
+    // ── Ball final angle ─────────────────────────────────────────────────────
+    // Ball ends at exactly POINTER_ANGLE = -π/2 (top)
+    // Ball spins counter-clockwise (negative) for many full rotations
+    const initBA = ballAngleRef.current;         // should be POINTER_ANGLE
+    const extraBallSpins = (12 + Math.floor(Math.random() * 6)) * 2 * Math.PI; // CCW
+    // final = initBA - extraBallSpins  (mod 2π ≡ initBA, so ball ends at pointer)
+
+    const rect = wheelCanvasRef.current?.getBoundingClientRect();
+    const wheelSize = rect ? Math.min(rect.width, rect.height) : 340;
+    const wheelCenter = wheelSize / 2;
+    const ballHalf = 6.5;
+    const BALL_OUTER = wheelCenter - 7;
+    const BALL_INNER = wheelCenter - 18;
+    const BALL_FINAL = BALL_INNER - 6;
+
+    const duration = 6000 + Math.random() * 2000;
+    const startWA  = curWA;
+    let startTime: number | null = null;
+
+    const animate = (ts: number) => {
+      if (!startTime) startTime = ts;
+      const elapsed = Math.min(ts - startTime, duration);
+      const prog    = elapsed / duration;
+
+      // ── Wheel: clockwise ease-out quartic ──────────────────────────────
+      const eW     = 1 - Math.pow(1 - prog, 4);
+      const wAngle = startWA + eW * (finalWA - startWA);
+      wheelAngleRef.current = wAngle;
+      drawWheel(wAngle);
+
+      // ── Ball: counter-clockwise ease-out cubic ─────────────────────────
+      // Slow to a stop and drop inward during last ~35% of animation
+      const tBall  = Math.min(prog / 0.88, 1);
+      const eB     = 1 - Math.pow(1 - tBall, 3);
+      const bAngle = initBA - eB * extraBallSpins;
+      ballAngleRef.current = bAngle;
+
+      // Drop from outer gutter into number ring
+      const inward  = Math.max(0, (prog - 0.65) / 0.35);
+      const bRad    = BALL_OUTER - inward * (BALL_OUTER - BALL_INNER);
+
+      const ball = ballRef.current;
+      if (ball) {
+        setBallPosition(bAngle, bRad);
+      }
+
+      if (prog < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // ── Snap ball to pointer (top) and declare result ─────────────────
+        const ball2 = ballRef.current;
+        if (ball2) {
+          setBallPosition(POINTER_ANGLE, BALL_FINAL);
+          ballAngleRef.current = POINTER_ANGLE;
         }
-        return current - 1;
-      });
-    }, 1000);
 
-    return () => window.clearTimeout(timeout);
-  }, [bets.length, isSpinning, spinCountdown]);
+        wheelAngleRef.current = finalWA;
+        drawWheel(finalWA);
+        const winNum = chosenWinNum;
+        spinningRef.current = false;
+        setSpinning(false);
+        setResultNum(winNum);
+        setResultLabel(
+          winNum === 0 ? "GREEN" : RED_NUMS.has(winNum) ? "RED" : "BLACK",
+        );
+        setTimeout(() => {
+          let winAmt = 0;
+          for (const [key, bet] of Object.entries(betsRef.current)) {
+            const m = calcWin(key, winNum);
+            if (m > 0) winAmt += bet.amount * (m + 1);
+          }
+          if (winAmt > 0) {
+            setBalance((prev) => {
+              const n = prev + winAmt;
+              balanceRef.current = n;
+              return n;
+            });
+            showNotif("🎉 You won " + fmt(winAmt) + "!", "win");
+          } else showNotif("No win. Number: " + winNum, "lose");
+          setPrevResults((prev) => {
+            const next = [winNum, ...prev].slice(0, 10);
+            prevResultsRef.current = next;
+            setTimeout(() => renderChips(betsRef.current, next), 50);
+            return next;
+          });
+          setBetActive(false);
+          betsRef.current      = {};
+          totalBetRef.current  = 0;
+          betActiveRef.current = false;
+          setBets({});
+          setTotalBet(0);
+          setTimeout(() => setWheelExpanded(false), 2500);
+          // Ball stays at pointer position — no further reset needed
+        }, 600);
+      }
+    };
+    requestAnimationFrame(animate);
+  }, [drawWheel, showNotif, calcWin, renderChips]);
 
-  const statusColors: Record<ResultStatus, { color: string; bg: string; border: string; shadow: string }> = {
-    idle: { color: "#93c5fd", bg: "rgba(96,165,250,0.08)", border: "#334155", shadow: "none" },
-    win:  { color: "#4ade80", bg: "rgba(74,222,128,0.12)", border: "#4ade80", shadow: "0 0 20px rgba(74,222,128,0.3)" },
-    lose: { color: "#f87171", bg: "rgba(248,113,113,0.12)", border: "#f87171", shadow: "0 0 20px rgba(248,113,113,0.3)" },
-  };
-  const sc = statusColors[resultCls];
+  const resultColor =
+    resultNum === null
+      ? "#d8dde5"
+      : resultNum === 0
+        ? "#27c76b"
+        : RED_NUMS.has(resultNum)
+          ? "#e74c3c"
+          : "#9aa3b0";
 
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="roulette-page"
+      suppressHydrationWarning
       style={{
-        minHeight: "100dvh",
-        background: "linear-gradient(160deg,#020d08 0%,#0a2218 40%,#061410 100%)",
+        background: "#080c10",
+        color: "#d8dde5",
+        fontFamily: "Cinzel, serif",
+        minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        overflowX: "hidden",
-        overflowY: "auto",
-        fontFamily: "'Cairo', sans-serif",
       }}
     >
-      {/* ═══ HEADER ═══ */}
-      <header
-        style={{
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "8px",
-          padding: "clamp(7px,1.8vw,12px) clamp(10px,2vw,18px)",
-          background: "linear-gradient(90deg,#040e08,#0d2818,#040e08)",
-          borderBottom: "2px solid #f5c518",
-          boxShadow: "0 2px 20px rgba(245,197,24,0.15)",
-          zIndex: 30,
-        }}
-      >
-        <Link
-          href="/"
-          style={{
-            background: "rgba(0,0,0,0.5)",
-            border: "1.5px solid #444",
-            borderRadius: "10px",
-            padding: "6px 14px",
-            color: "#aaa",
-            fontSize: "13px",
-            textDecoration: "none",
-            fontFamily: "'Cairo', sans-serif",
-          }}
-        >
-          ⬅ الرئيسية
-        </Link>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Montserrat:wght@400;600;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        <div style={{ textAlign: "center" }}>
-          <h1
-            className="font-playfair"
-            style={{
-              fontSize: "clamp(16px,4vw,26px)",
-              color: "#f5c518",
-              textShadow: "0 0 20px rgba(245,197,24,0.7)",
-              letterSpacing: 0,
-              margin: 0,
-            }}
-          >
-            🎡 ROULETTE PRO
-          </h1>
-          <div style={{ fontSize: "10px", color: "#555", letterSpacing: 0 }}>
-            EUROPEAN SINGLE-ZERO WHEEL
-          </div>
-        </div>
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0b0e14; }
+        ::-webkit-scrollbar-thumb { background: #1e2530; border-radius: 3px; }
 
-        {/* Balance */}
-        <div
-          style={{
-            background: "linear-gradient(135deg,rgba(0,0,0,0.7),rgba(20,50,30,0.7))",
-            border: "1.5px solid #f5c518",
-            borderRadius: "14px",
-            padding: "6px 14px",
-            textAlign: "center",
-            minWidth: "100px",
-          }}
-        >
-          <div style={{ fontSize: "9px", color: "#888", letterSpacing: 0 }}>💰 رصيدك</div>
-          <div
-            className="font-playfair"
-            style={{
-              fontSize: "clamp(15px,3.5vw,22px)",
-              color: "#4ade80",
-              fontWeight: 900,
-              lineHeight: 1,
-              textShadow: "0 0 10px rgba(74,222,128,0.5)",
-            }}
-          >
-            ${balance.toLocaleString()}
-          </div>
-        </div>
-      </header>
+        /* ── Toast notification ── */
+        .notif {
+          position: fixed; top: 14px; left: 50%;
+          transform: translateX(-50%) translateY(-10px);
+          background: #13181f; border: 1px solid #252d3a;
+          border-radius: 10px; padding: 10px 24px;
+          font-family: "Montserrat", sans-serif; font-size: 0.9rem;
+          font-weight: 700; color: #fff; z-index: 9999;
+          opacity: 0; transition: opacity .25s, transform .25s;
+          pointer-events: none; white-space: nowrap;
+        }
+        .notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .notif.win  { border-color: #1db954; color: #27c76b; }
+        .notif.lose { border-color: #c0392b; color: #e74c3c; }
 
-      {/* ═══ STATS & RECENT WINS ═══ */}
+        /* ══════════════════════════════════════════════════════
+           DESKTOP  ≥ 1100 px   (side-panel LEFT, main RIGHT)
+        ══════════════════════════════════════════════════════ */
+        .mobile-header    { display: none; }
+        .desktop-only-balance { display: flex; }
+
+        .game-layout {
+          display: flex;
+          flex-direction: row;       /* side LEFT | content RIGHT */
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        /* ── Left side panel ── */
+        .side-panel {
+          width: 260px;
+          min-width: 200px;
+          min-height: 0;
+          max-height: 100vh;
+          flex-shrink: 0;
+          background: rgba(15,19,24,0.96);
+          border-right: 1px solid rgba(30,37,48,0.9);
+          box-shadow: inset 2px 0 30px rgba(255,255,255,0.02);
+          padding: 12px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          overflow-y: auto;
+          transition: width .18s ease, min-width .18s ease, padding .18s ease, background .18s ease, box-shadow .18s ease;
+          font-size: 0.95rem;
+        }
+
+        .side-panel-toggle {
+          width: 100%;
+          min-height: 42px;
+          border: 1px solid rgba(37,45,58,0.95);
+          border-radius: 12px;
+          background: linear-gradient(180deg, rgba(17,24,33,0.95) 0%, rgba(18,26,36,0.92) 100%);
+          color: #d8dde5;
+          cursor: pointer;
+          font-family: "Montserrat", sans-serif;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 1px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .side-panel-toggle:hover {
+          background: linear-gradient(180deg, rgba(31,39,51,0.98) 0%, rgba(22,30,40,0.96) 100%);
+          transform: translateY(-1px);
+        }
+
+        .side-panel-toggle img {
+          transition: transform .18s ease, filter .18s ease, opacity .18s ease;
+        }
+
+        .side-panel-body {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          overflow: visible;
+          max-height: none;
+          opacity: 1;
+          transform: translateX(0);
+          transition: max-height .22s ease, opacity .18s ease, transform .18s ease;
+        }
+
+        .table-total-bet {
+          position: absolute;
+          top: 4.5%;
+          right: 5.5%;
+          z-index: 30;
+          display: inline-flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+          padding: 10px 14px;
+          background: rgba(11, 14, 20, 0.96);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 12px;
+          box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+          min-width: 130px;
+        }
+        .table-total-bet .total-bet-label {
+          font-size: 0.65rem;
+          font-family: 'Orbitron', monospace;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: #96a0b8;
+        }
+        .table-total-bet .total-bet-value {
+          font-size: 1rem;
+          font-family: 'Orbitron', monospace;
+          color: #f5c842;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+        }
+        .side-panel.side-panel-collapsed {
+          width: 50px;
+          min-width: 50px;
+          padding: 10px 6px;
+          overflow: visible;
+        }
+
+        .side-panel.side-panel-collapsed .side-panel-body {
+          max-height: 0;
+          opacity: 0;
+          transform: translateX(-16px);
+          pointer-events: none;
+        }
+
+        .side-panel.side-panel-collapsed .side-panel-toggle {
+          width: 36px;
+          aspect-ratio: 1;
+          min-height: 36px;
+          padding: 0;
+        }
+
+        /* ── Right main area ── */
+        .main-area {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 12px 18px;
+          overflow-y: auto;
+          min-width: 0;
+        }
+
+        /* ── Game container: wheel floats INSIDE table SVG area ── */
+        .game-container {
+          position: relative;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          max-width: 1450px;
+          margin: 0 auto;
+        }
+
+        .table-section {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          min-width: 0;
+          width: 100%;
+        }
+
+        /* svg-wrap = position:relative container for the table image + canvas + wheel */
+        .svg-wrap {
+          position: relative;
+          width: 100%;
+        }
+        .svg-wrap > img { width: 100%; height: auto; display: block; user-select: none; }
+
+        /* table-inner-wrap holds the SVG img + chip canvas + click overlay */
+        .table-inner-wrap {
+          position: relative;
+          width: 100%;
+        }
+
+        /* Wheel floats over the left empty space of the table SVG */
+        .wheel-section {
+          position: absolute;
+          left: 4.5%;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 20;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          width: fit-content;
+        }
+
+        .wheel-wrap {
+          position: relative;
+          /* Increased wheel size for large screens: bigger min/viewport/max */
+          width: clamp(320px, 34vw, 520px);
+          /* Match height to the larger width so the wheel stays circular on big screens */
+          height: clamp(320px, 34vw, 520px);
+          flex-shrink: 0;
+        }
+        .wheel-wrap canvas { width: 100% !important; height: 100% !important; border-radius: 50%; display: block; }
+
+        .result-number { font-family: "Cinzel",serif; letter-spacing: 2px; font-size: 46px; font-weight: 900; line-height: 1; }
+        .result-label  { font-family: "Cinzel",serif; font-size: 15px; font-weight: 700; letter-spacing: 3px; }
+        .spin-btn      { width: 260px; margin-top: 10px; }
+
+        .chip-canvas {
+          position: absolute; top: 0; left: 0;
+          pointer-events: none; z-index: 10;
+        }
+        .hover-highlight {
+          position: absolute;
+          pointer-events: none;
+          border-radius: 10px;
+          background: rgba(124, 229, 204, 0.14);
+          box-shadow: inset 0 0 0 1px rgba(124, 229, 204, 0.65),
+            0 0 18px rgba(124, 229, 204, 0.16);
+          z-index: 12;
+          transition: left 0.08s ease, top 0.08s ease, width 0.08s ease,
+            height 0.08s ease, opacity 0.12s ease;
+        }
+        .click-overlay {
+          position: absolute; top: 0; left: 0;
+          width: 100%; height: 100%;
+          cursor: crosshair; z-index: 13;
+        }
+
+        /* Chip selector sits over the table's right half */
+        .table-chip-selector {
+          position: absolute;
+          bottom: 8.5%; left: 69.5%;
+          transform: translateX(-50%) scale(1);
+          transform-origin: bottom center;
+          z-index: 25;
+          transition: transform .2s ease;
+        }
+        .table-edit-toggle {
+          position: absolute;
+          top: 4.5%;
+          left: 5.5%;
+          z-index: 31;
+        }
+        .table-edit-toggle button {
+          min-width: 90px;
+          border-radius: 12px;
+          border: 1px solid rgba(245,200,66,0.45);
+          padding: 8px 10px;
+          font-size: 0.78rem;
+          letter-spacing: 0.8px;
+          font-family: 'Orbitron', monospace;
+          color: #abb3c9;
+          background: #0a0d12;
+          cursor: pointer;
+          transition: background .2s, color .2s, transform .2s;
+        }
+        .table-edit-toggle button.active,
+        .table-edit-toggle button:hover {
+          background: rgba(245,200,66,0.18);
+          color: #f5c842;
+          transform: translateY(-1px);
+        }
+        @media (min-width: 1100px) and (max-width: 1300px) {
+          .table-chip-selector { transform: translateX(-50%) scale(0.85); bottom: 7%; }
+        }
+
+        /* ══════════════════════════════════════════════════════
+           TABLET  680 – 1099 px   (wheel LEFT, table RIGHT)
+        ══════════════════════════════════════════════════════ */
+        @media (min-width: 680px) and (max-width: 1099px) {
+          .game-layout     { flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+          .mobile-header   { display: none; }
+          .desktop-only-balance{ display: flex !important; }
+
+          .side-panel {
+            width: 100%;
+            min-width: unset;
+            border-right: none;
+            border-bottom: 1px solid #1e2530;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 8px 14px;
+            padding: 10px 16px;
+            overflow-y: visible;
+            overflow-x: auto;
+            align-items: flex-start;
+          }
+          .side-panel-toggle { flex: 0 0 42px; width: 42px; min-height: 42px; }
+          .side-panel-body {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 8px 14px;
+            overflow: visible;
+            max-height: none;
+            opacity: 1;
+            transform: translateX(0);
+            transition: max-height .32s ease, opacity .22s ease, transform .22s ease;
+          }
+          .side-panel-body > div  { flex: 1 1 160px; min-width: 140px; }
+          .side-panel-body > button { flex: 1 1 140px; min-width: 120px; }
+          .side-panel.side-panel-collapsed {
+            width: 100%;
+            min-width: unset;
+            min-height: 54px;
+            padding: 8px 16px;
+          }
+          .side-panel.side-panel-collapsed .side-panel-body {
+            max-height: 0;
+            opacity: 0;
+            transform: translateX(-16px);
+            pointer-events: none;
+          }
+
+          .main-area   { padding: 10px 12px; }
+
+          .game-container {
+            flex-direction: column;
+            gap: 0;
+            align-items: flex-start;
+            max-width: none;
+          }
+          .table-section  { width: 100%; align-items: flex-start; }
+
+          /* Keep the wheel inside the SVG table art on tablets. */
+          .svg-wrap {
+            display: block;
+            position: relative;
+            width: min(1320px, 148vw);
+            max-width: none;
+          }
+
+          .wheel-section {
+            position: absolute;
+            left: 4.25%;
+            top: 50%;
+            transform: translateY(-50%);
+            width: fit-content;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0;
+            z-index: 20;
+            transition: transform 0.5s cubic-bezier(0.34,1.2,0.64,1);
+          }
+
+          /* When expanded (spinning): wheel overlays the whole svg-wrap */
+          .wheel-section.expanded {
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(8,12,16,0.92);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            justify-content: center;
+            padding: 16px;
+            gap: 14px;
+          }
+
+          .wheel-wrap {
+            width: clamp(150px, 25vw, 260px);
+            height: clamp(150px, 25vw, 260px);
+            transition: width 0.5s cubic-bezier(0.34,1.2,0.64,1),
+                        height 0.5s cubic-bezier(0.34,1.2,0.64,1);
+          }
+          .wheel-section.expanded .wheel-wrap {
+            width: min(55vw, 340px);
+            height: min(55vw, 340px);
+          }
+
+          .result-number { font-size: 36px; }
+          .spin-btn { width: 200px; }
+
+          /* Table takes remaining space */
+          .table-inner-wrap { width: 100%; min-width: 0; }
+
+          .table-chip-selector {
+            transform: translateX(-50%) scale(0.58);
+            bottom: 6.5%; left: 68%;
+          }
+        }
+
+        /* ══════════════════════════════════════════════════════
+           MOBILE  < 680 px   (sticky header + bottom sheets)
+        ══════════════════════════════════════════════════════ */
+        @media (max-width: 679px) {
+          /* Sticky top bar: logo + balance */
+          .mobile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 14px;
+            background: #0a0d12;
+            border-bottom: 1px solid #1e2530;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+          }
+          .mobile-header-balance { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+          .mobile-header-balance .lbl { font-size: 0.5rem; color: #7a8494; text-transform: uppercase; letter-spacing: 1.5px; }
+          .mobile-header-balance .val { font-family: 'Orbitron',monospace; font-size: 0.95rem; font-weight: 700; color: #f5c842; }
+
+          /* Hide desktop balance card in the side panel on mobile */
+          .desktop-only-balance { display: none !important; }
+
+          .game-layout { flex-direction: column; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+
+          /* Side panel becomes a clean vertical card below header */
+          .side-panel {
+            width: 100%;
+            min-width: unset;
+            border-right: none;
+            border-bottom: 1px solid #1e2530;
+            flex-direction: column;
+            padding: 12px 14px;
+            gap: 10px;
+            overflow: visible;
+          }
+          .side-panel-toggle { width: 100%; }
+          .side-panel-body { flex: none; width: 100%; overflow: visible; max-height: none; }
+          .side-panel-body > div  { flex: none; width: 100%; }
+          .side-panel-body > button { width: 100%; }
+          .side-panel.side-panel-collapsed {
+            width: 100%;
+            min-width: unset;
+            padding: 8px 14px;
+          }
+
+          .main-area { padding: 8px 8px 20px; }
+
+          .game-container { flex-direction: column; gap: 10px; }
+
+          /* Wheel is flow-positioned above the table */
+          .wheel-section {
+            position: static;
+            transform: none;
+            width: 100%;
+            align-items: center;
+            margin: 0 auto;
+          }
+          .wheel-wrap {
+            width: clamp(180px, 68vw, 280px);
+            height: clamp(180px, 68vw, 280px);
+          }
+          .result-number { font-size: 36px; }
+          .spin-btn { width: 100%; max-width: 260px; }
+
+          /* svg-wrap becomes a normal block */
+          .svg-wrap { display: block; }
+
+          .table-chip-selector {
+            transform: translateX(-50%) scale(0.45);
+            bottom: 5%; left: 68%;
+          }
+        }
+
+        /* ── Keyframes ── */
+        @keyframes glowPulse {
+          0%,100% { opacity: .75; transform: scale(1); }
+          50%      { opacity: 1;   transform: scale(1.06); }
+        }
+      `}</style>
+
       <div
-        className="flex-shrink-0 flex items-center justify-between border-b roulette-stats"
-        style={{
-          padding: "6px 16px",
-          background: "rgba(0,0,0,0.3)",
-          borderColor: "rgba(245,197,24,0.15)"
-        }}
+        className={`notif${notif ? " show" + (notif.type ? " " + notif.type : "") : ""}`}
       >
-        <div className="flex items-center gap-1.5">
-          <span className="text-gray-500" style={{ fontSize: "11px" }}>آخر 10 نتائج:</span>
-          <div className="flex gap-1">
-            {history.length > 0 ? (
-              history.map((num, i) => {
-                const col = getNumberColor(num);
-                const bg = col === "red" ? "#ef4444" : col === "black" ? "#1e293b" : "#22c55e";
-                return (
-                  <span
-                    key={i}
-                    className="flex items-center justify-center font-bold font-playfair animate-dot-pop"
+        {notif?.msg}
+      </div>
+
+      {/* ── MOBILE STICKY HEADER (hidden on desktop via CSS) ── */}
+      <div className="mobile-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: "1.3rem" }}>🎰</span>
+          <span style={{ fontFamily: "'Cinzel',serif", fontSize: "0.9rem", fontWeight: 700, color: "#f5c842", letterSpacing: 1 }}>ROULETTE</span>
+        </div>
+        <div className="mobile-header-balance">
+          <span className="lbl">Balance</span>
+          <span className="val">{fmt(balance)}</span>
+        </div>
+      </div>
+
+      <div className="game-layout">
+        {/* ── SIDE PANEL ── */}
+        <div
+          className={`side-panel${sidePanelCollapsed ? " side-panel-collapsed" : ""}`}
+        >
+          <button
+            className="side-panel-toggle"
+            type="button"
+            onClick={() => setSidePanelCollapsed((v) => !v)}
+            aria-label={sidePanelCollapsed ? "Show controls" : "Hide controls"}
+            title={sidePanelCollapsed ? "Show controls" : "Hide controls"}
+          >
+            <img
+              src="/roulette/panel-left-toggle.svg"
+              alt={sidePanelCollapsed ? "Open panel" : "Close panel"}
+              style={{
+                width: 20,
+                height: 20,
+                display: "block",
+                transform: sidePanelCollapsed ? "rotate(180deg)" : "none",
+              }}
+            />
+          </button>
+          <div className="side-panel-body">
+          {/* Balance - desktop only (mobile shows in sticky header) */}
+          <div
+            className="desktop-only-balance"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "#0a0d12",
+              border: "1px solid #1e2530",
+              borderRadius: 8,
+              padding: "8px 10px",
+              width: "100%",
+            }}
+          >
+            <span style={{ fontSize: "1.1rem" }}>🎰</span>
+            <div>
+              <div
+                style={{
+                  fontSize: "0.72rem",
+                  color: "#7a8494",
+                  textTransform: "uppercase",
+                  letterSpacing: "1px",
+                }}
+              >
+                Balance
+              </div>
+              <div
+                style={{
+                  fontFamily: "'Orbitron',monospace",
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  color: "#f5c842",
+                }}
+              >
+                {fmt(balance)}
+              </div>
+            </div>
+          </div>
+
+          {/* Bet Amount */}
+          <div style={{ width: "100%" }}>
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "#7a8494",
+                textTransform: "uppercase",
+                letterSpacing: "1.5px",
+                marginBottom: 4,
+              }}
+            >
+              Bet Amount
+            </div>
+            <div
+              style={{
+                background: "#0a0d12",
+                border: "1px solid #1e2530",
+                borderRadius: 8,
+                padding: "7px 10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 4,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "'Orbitron',monospace",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: "#27c76b",
+                }}
+              >
+                {fmt(betVal)}
+              </span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {(
+                  [
+                    ["Min", () => setBetVal(5)],
+                    ["½", () => setBetVal((v) => Math.max(5, v / 2))],
+                    ["2×", () => setBetVal((v) => Math.min(10000, v * 2))],
+                    ["Max", () => setBetVal(10000)],
+                  ] as [string, () => void][]
+                ).map(([l, fn]) => (
+                  <button
+                    key={l}
+                    onClick={fn}
                     style={{
-                      width: "22px",
-                      height: "22px",
-                      borderRadius: "50%",
-                      fontSize: "11px",
-                      background: bg,
-                      color: "white",
-                      border: "1px solid rgba(255,255,255,0.25)",
-                      boxShadow: "0 2px 5px rgba(0,0,0,0.5)"
+                      background: "#151c26",
+                      border: "1px solid #252d3a",
+                      borderRadius: 4,
+                      color: "#7a8494",
+                      fontSize: "0.75rem",
+                      padding: "3px 5px",
+                      cursor: "pointer",
+                      fontFamily: "'Rajdhani',sans-serif",
+                      fontWeight: 600,
                     }}
                   >
-                    {num}
-                  </span>
-                );
-              })
-            ) : (
-              <span className="text-gray-600 text-xs">— لا يوجد جولات بعد —</span>
-            )}
-          </div>
-        </div>
-        
-        {winningNumber !== null && (
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500 text-xs">آخر رقم:</span>
-            <span
-              className="font-black px-3 py-0.5 rounded-full text-xs text-white"
-              style={{
-                background: getNumberColor(winningNumber) === "red" ? "#ef4444" : getNumberColor(winningNumber) === "black" ? "#1e293b" : "#22c55e",
-                border: "1px solid rgba(255,255,255,0.3)"
-              }}
-            >
-              {winningNumber}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* ═══ LIVE AI DEALER CHAT BUBBLE ═══ */}
-      <div
-        className="flex-shrink-0 flex items-center justify-center gap-3 px-4 py-2 roulette-dealer-bubble"
-        style={{
-          background: "rgba(0,0,0,0.5)",
-          border: "1.5px solid rgba(245,197,24,0.35)",
-          borderRadius: "20px",
-          margin: "8px 16px 0 16px",
-          boxShadow: "0 4px 15px rgba(0,0,0,0.6)",
-          position: "relative",
-          zIndex: 35,
-        }}
-      >
-        <div
-          className="flex items-center justify-center font-bold"
-          style={{
-            width: "36px",
-            height: "36px",
-            borderRadius: "50%",
-            background: "linear-gradient(135deg,#f5c518,#b45309)",
-            border: "1.5px solid white",
-            fontSize: "20px",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.5)"
-          }}
-        >
-          🤵
-        </div>
-        <div className="flex-1 text-right">
-          <div style={{ fontSize: "9px", color: "#f5c518", fontWeight: 900 }}>🤵 الديلر الذكي (Gemini 2.5)</div>
-          <div
-            style={{
-              fontSize: "clamp(12px, 3.2vw, 15px)",
-              color: "white",
-              fontWeight: 700,
-              lineHeight: 1.3,
-            }}
-          >
-            {dealerComment}
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ ARENA (WHEEL & TABLE MAP) ═══ */}
-      <div
-        className="flex-1 flex flex-col justify-center items-center min-h-0 roulette-arena-scroll"
-        style={{ padding: "clamp(8px,2vw,18px) clamp(8px,1.6vw,14px)", gap: "10px" }}
-      >
-        {/* Table wrapper - large responsive stage, coordinates stay based on the original 640x282 map */}
-        <div
-          className="w-full relative select-none overflow-hidden shadow-2xl roulette-table-shell"
-          style={{
-            width: "min(96vw, 1480px)",
-            maxWidth: "1480px",
-            aspectRatio: "640/282",
-            border: "clamp(3px,0.45vw,6px) solid #f5c518",
-            borderRadius: "12px",
-            boxShadow: "0 15px 50px rgba(0,0,0,0.9), 0 0 35px rgba(245,197,24,0.25)",
-            background: "linear-gradient(135deg,#062412,#031108)"
-          }}
-        >
-          {/* Static Table SVG */}
-          <Image
-            src="/roulette/table.svg"
-            alt="Roulette Table Grid"
-            width={640}
-            height={282}
-            className="w-full h-full block pointer-events-none"
-            style={{ objectFit: "cover", zIndex: 0 }}
-            priority
-          />
-
-          <div
-            className="absolute pointer-events-none overflow-hidden"
-            style={{
-              ...WHEEL_BOX_STYLE,
-              zIndex: 1,
-            }}
-          >
-            <Image
-              src="/roulette/wheel.svg"
-              alt="Roulette wheel bowl"
-              width={245}
-              height={282}
-              className="w-full h-full object-cover roulette-wheel-base"
-              style={{
-                "--wheel-disc-clip": WHEEL_DISC_CLIP_PERCENT,
-              } as React.CSSProperties}
-              unoptimized
-              priority
-            />
-
-            {isSpinning && winningNumber === null && (
-              <Image
-                src="/roulette/wheel.svg"
-                alt=""
-                width={245}
-                height={282}
-                className="w-full h-full object-cover roulette-wheel-disc is-spinning"
-                style={{
-                  "--spin-duration": `${SPIN_DURATION_MS}ms`,
-                  "--wheel-disc-clip": WHEEL_DISC_CLIP_PERCENT,
-                } as React.CSSProperties}
-                unoptimized
-              />
-            )}
-
-            {isSpinning && winningNumber === null && (
-              <div
-                className="roulette-ball-orbit-track"
-                aria-hidden="true"
-                style={{
-                  "--ball-final-rotation": `${getBallOrbitRotation(spinTargetNumber ?? 0)}deg`,
-                  "--spin-duration": `${SPIN_DURATION_MS}ms`,
-                  "--wheel-orbit-size": WHEEL_ORBIT_SIZE_PERCENT,
-                } as React.CSSProperties}
-              >
-                <Image
-                  src="/roulette/roulette_ball.svg"
-                  alt=""
-                  width={34}
-                  height={34}
-                  className="roulette-ball-orbit"
-                />
+                    {l}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Winning Ball Pocket Indicator above wheel */}
-          {winningNumber !== null && !isSpinning && (
+          {/* Chip Value */}
+          <div style={{ width: "100%" }}>
             <div
-              className="absolute flex items-center justify-center animate-chip-bounce-in"
               style={{
-                left: `${getBallPosition(winningNumber).left}%`,
-                top: `${getBallPosition(winningNumber).top}%`,
-                transform: "translate(-50%, -50%)",
-                width: `${getBallPosition(winningNumber).width}%`,
-                height: `${getBallPosition(winningNumber).height}%`,
-                zIndex: 25,
+                fontSize: "0.75rem",
+                color: "#7a8494",
+                textTransform: "uppercase",
+                letterSpacing: "1.5px",
+                marginBottom: 6,
               }}
             >
-              <Image
-                src="/roulette/roulette_ball.svg"
-                alt="Roulette Ball"
-                width={30}
-                height={30}
-                className="roulette-settled-ball filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]"
-              />
+              Chip Value
             </div>
-          )}
-
-          {/* Placed Chips & Hover Highlights Absolute Overlay Container */}
-          <div
-            className="absolute inset-0 z-10"
-            style={{ pointerEvents: isSpinning ? "none" : "auto", cursor: "pointer" }}
-            onClick={handleTableClick}
-            onMouseMove={handleTableMouseMove}
-            onMouseLeave={handleTableMouseLeave}
-          >
-            {/* Placed Chips */}
-            {bets.map((bet) => (
-              <div
-                key={bet.id}
-                className="absolute flex items-center justify-center animate-chip-bounce-in pointer-events-none"
-                style={{
-                  left: `${bet.left}%`,
-                  top: `${bet.top}%`,
-                  transform: "translate(-50%, -50%)",
-                  width: "30px",
-                  height: "30px",
-                  zIndex: 20,
-                }}
-              >
-                <Image
-                  src={bet.chipImg}
-                  alt={`Bet: $${bet.value}`}
-                  width={30}
-                  height={30}
-                  className="animate-chip-float filter drop-shadow-[0_3px_5px_rgba(0,0,0,0.85)]"
-                  style={{
-                    width: "clamp(18px, 2.15vw, 30px)",
-                    height: "clamp(18px, 2.15vw, 30px)",
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3,1fr)",
+                gap: "10px 8px",
+              }}
+            >
+              {CHIP_DEFS.map((cd) => (
+                <div
+                  key={cd.cls}
+                  onClick={() => {
+                    setChipValue(cd.value);
+                    setChipCls(cd.cls);
+                    chipValueRef.current = cd.value;
+                    chipClsRef.current = cd.cls;
                   }}
-                />
-                
-                {/* Total Value Badge */}
-                <span
-                  className="absolute font-black text-center text-black bg-yellow-400 rounded-full flex items-center justify-center border border-white"
                   style={{
-                    fontSize: "8px",
-                    width: "15px",
-                    height: "15px",
-                    bottom: "-3px",
-                    right: "-3px",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.6)",
+                    aspectRatio: "1",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    border:
+                      chipCls === cd.cls
+                        ? "3px solid #f5c842"
+                        : "3px solid transparent",
+                    boxShadow:
+                      chipCls === cd.cls
+                        ? "0 0 0 3px #f5c842,0 4px 16px rgba(245,200,66,0.3)"
+                        : "0 3px 10px rgba(0,0,0,0.5)",
+                    transform: chipCls === cd.cls ? "scale(1.15)" : "scale(1)",
+                    transition: "transform 0.15s,box-shadow 0.15s",
+                    userSelect: "none",
+                    background: "rgba(255,255,255,0.03)",
+                    padding: 2,
                   }}
                 >
-                  {bet.value}
-                </span>
-              </div>
-            ))}
-
-            {/* Glowing Golden Hover Bounding Box */}
-            {hoveredBet && (
-              <div
-                className="absolute pointer-events-none transition-all duration-75 roulette-hover-outline"
-                style={{
-                  left: `${hoveredBet.left}%`,
-                  top: `${hoveredBet.top}%`,
-                  width: `${hoveredBet.width}%`,
-                  height: `${hoveredBet.height}%`,
-                  border: "2.5px solid rgba(245,197,24,0.95)",
-                  background: "rgba(245,197,24,0.18)",
-                  boxShadow: "0 0 15px rgba(245,197,24,0.7), inset 0 0 10px rgba(245,197,24,0.5)",
-                  borderRadius: "4px",
-                  zIndex: 15,
-                }}
-              />
-            )}
+                  <img
+                    src={cd.svgPath}
+                    alt={cd.label}
+                    draggable={false}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      borderRadius: "50%",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
-          {isSpinning && (
-            <div className="roulette-lock-overlay pointer-events-none">
-              <span>No More Bets</span>
+          {/* Payout */}
+          <div style={{ width: "100%" }}>
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "#7a8494",
+                textTransform: "uppercase",
+                letterSpacing: "1.5px",
+                marginBottom: 4,
+              }}
+            >
+              Payout Rules
             </div>
-          )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {[
+                ["Straight (1#)", "35:1"],
+                ["Split (2#)", "17:1"],
+                ["Street (3#)", "11:1"],
+                ["Corner (4#)", "8:1"],
+                ["Six Line (6#)", "5:1"],
+                ["Column/Dozen", "2:1"],
+                ["Red/Black/Etc", "1:1"],
+              ].map(([n, p]) => (
+                <div
+                  key={n}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "3px 6px",
+                    borderRadius: 4,
+                    background: "#0a0d12",
+                    border: "1px solid #1a2030",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  <span style={{ color: "#7a8494" }}>{n}</span>
+                  <span
+                    style={{
+                      color: "#f5c842",
+                      fontWeight: 700,
+                      fontFamily: "'Orbitron',monospace",
+                      fontSize: "0.72rem",
+                    }}
+                  >
+                    {p}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-          {/* Nested Coin selection tray inside the green table felt at the bottom center */}
+          {/* Total */}
           <div
-            className="absolute flex justify-center items-center pointer-events-auto roulette-chip-tray"
             style={{
-              bottom: "4%",
-              left: "50%",
-              transform: "translateX(-50%)",
-              gap: "clamp(10px, 1.8vw, 18px)",
-              zIndex: 30,
-              background: "rgba(0,0,0,0.45)",
-              padding: "6px 16px",
-              borderRadius: "20px",
-              border: "1.5px solid rgba(245,197,24,0.35)",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+              background: "#0a0d12",
+              border: "1px solid #1e2530",
+              borderRadius: 8,
+              padding: "6px 10px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "0.82rem",
+              width: "100%",
             }}
           >
-            {CHIP_TRAY.map((c) => (
-              <button
-                key={c.val}
-                onClick={(e) => {
-                  e.stopPropagation(); // Stop trigger bet click on grid!
-                  setSelectedChip(c.val);
-                }}
-                disabled={isSpinning}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: isSpinning ? "not-allowed" : "pointer",
-                  opacity: isSpinning ? 0.4 : 1,
-                }}
-              >
-                <Image
-                  src={c.img}
-                  alt={`Chip $${c.val}`}
-                  width={46}
-                  height={46}
-                  className={`chip-img ${selectedChip === c.val ? "selected" : ""}`}
-                  style={{
-                    width: "clamp(34px, 3.4vw, 46px)",
-                    height: "clamp(34px, 3.4vw, 46px)",
-                  }}
-                />
-              </button>
-            ))}
+            <span>Total Bet</span>
+            <span
+              style={{
+                fontFamily: "'Orbitron',monospace",
+                color: "#f5c842",
+                fontWeight: 700,
+              }}
+            >
+              {fmt(totalBet)}
+            </span>
           </div>
-        </div>
-      </div>
 
-      {/* ═══ RESULT BANNER ═══ */}
-      <div
-        className="flex-shrink-0 text-center font-black flex items-center justify-center rounded-2xl mx-4 animate-banner-pop roulette-result-banner"
-        style={{
-          fontSize: "clamp(12px,3.5vw,17px)",
-          padding: "6px 20px",
-          minHeight: "36px",
-          border: `2px solid ${sc.border}`,
-          color: sc.color,
-          background: sc.bg,
-          boxShadow: sc.shadow,
-          transition: "all 0.3s ease",
-        }}
-      >
-        {isSpinning ? "🎰 تدور العجلة والكرة تبحث عن الجيب..." : bets.length > 0 && spinCountdown !== null ? `يغلق الديلر الرهانات خلال ${spinCountdown} ثواني` : resultMsg}
-      </div>
-
-      {/* ═══ BET AMOUNT STATE ═══ */}
-      <div
-        className="flex-shrink-0 flex items-center justify-center gap-2"
-        style={{ minHeight: "26px", padding: "4px 12px" }}
-      >
-        <div
-          className="flex items-center gap-1.5 rounded-2xl"
-          style={{
-            background: "rgba(0,0,0,0.4)",
-            border: "1.5px dashed rgba(245,197,24,0.4)",
-            padding: "3px 14px",
-          }}
-        >
-          <span className="text-gray-500" style={{ fontSize: "10px" }}>مجموع الرهان الحالي:</span>
-          <span className="font-black text-yellow-400" style={{ fontSize: "14px" }}>
-            ${totalBet}
-          </span>
-        </div>
-      </div>
-
-      {/* ═══ ACTIONS ═══ */}
-      <div
-        className="flex-shrink-0 flex justify-center flex-wrap roulette-actions"
-        style={{ gap: "clamp(5px,2vw,12px)", padding: "8px 12px" }}
-      >
-        <CasinoBtn
-          onClick={handleSpin}
-          grad="linear-gradient(135deg,#22c55e,#15803d)"
-          disabled={isSpinning || bets.length === 0}
-        >
-          🎡 Spin
-        </CasinoBtn>
-        <CasinoBtn
-          onClick={handleRepeatBets}
-          grad="linear-gradient(135deg,#a855f7,#7e22ce)"
-          disabled={isSpinning || lastBets.length === 0}
-        >
-          🔄 تكرار
-        </CasinoBtn>
-        <CasinoBtn
-          onClick={handleClearBets}
-          grad="linear-gradient(135deg,#ef4444,#991b1b)"
-          disabled={isSpinning || bets.length === 0}
-        >
-          🗑 مسح الرهانات
-        </CasinoBtn>
-        <CasinoBtn
-          onClick={handleReset}
-          grad="linear-gradient(135deg,#64748b,#334155)"
-          disabled={isSpinning}
-        >
-          🔄 جديد
-        </CasinoBtn>
-      </div>
-
-      {/* ═══ FOOTER ═══ */}
-      <div
-        className="flex-shrink-0 text-center border-t"
-        style={{ padding: "4px 8px", borderColor: "rgba(255,255,255,0.06)" }}
-      >
-        <Link href="/" className="no-underline text-gray-700" style={{ fontSize: "9px" }}>
-          Casino Games Pro © 2026
-        </Link>
-      </div>
-
-      {/* ═══ WIN OVERLAY ═══ */}
-      {winOverlay && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            pointerEvents: "none",
-            zIndex: 50,
-          }}
-        >
-          <div
-            className="font-playfair animate-win-explode"
+          <button
+            type="button"
+            onClick={() => setEditMode((v) => !v)}
             style={{
-              fontSize: "clamp(46px,14vw,100px)",
-              color: winOverlay.color,
-              fontWeight: 900,
-              textShadow: `0 0 40px ${winOverlay.color}`,
+              background: editMode ? "rgba(245,200,66,0.18)" : "#101418",
+              border: "1px solid rgba(245,200,66,0.45)",
+              borderRadius: 8,
+              color: editMode ? "#f5c842" : "#abb3c9",
+              padding: "10px",
+              fontSize: "0.92rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              width: "100%",
+              marginTop: 8,
+            }}
+          >
+            {editMode ? "Done Editing" : "Edit"}
+          </button>
+
+          <button
+            onClick={repeatBets}
+            disabled={spinning}
+            style={{
+              background: "linear-gradient(135deg,#ff9f1c,#f97316)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 9,
+              padding: "10px",
+              fontSize: "1.2rem",
+              fontWeight: 700,
+              letterSpacing: 1,
+              fontFamily: "'Orbitron',monospace",
+              cursor: spinning ? "not-allowed" : "pointer",
+              boxShadow: "0 4px 16px rgba(249,115,22,0.34)",
+              opacity: spinning ? 0.55 : 1,
+              width: "100%",
+            }}
+          >
+            Repeat
+          </button>
+
+          <div
+            onClick={clearBets}
+            style={{
+              background: "#101418",
+              border: "1px solid #1e2530",
+              borderRadius: 8,
+              color: "#7a8494",
+              padding: 6,
+              fontSize: "0.82rem",
+              cursor: "pointer",
+              textAlign: "center",
+              fontWeight: 600,
+              width: "100%",
+            }}
+          >
+            ✕ Clear Bets
+          </div>
+
+          {/* Spin count label replaces old prev results - results now live ON the SVG table */}
+          <div
+            style={{
+              width: "100%",
+              background: "#0a0d12",
+              border: "1px solid #1e2530",
+              borderRadius: 8,
+              padding: "6px 10px",
               textAlign: "center",
             }}
           >
-            {winOverlay.text}
-          </div>
-          {winOverlay.sub && (
             <div
-              className="animate-banner-pop"
               style={{
-                fontSize: "clamp(16px,5vw,28px)",
-                color: "white",
-                fontWeight: 700,
-                marginTop: "8px",
-                background: "rgba(0,0,0,0.6)",
-                padding: "4px 18px",
-                borderRadius: "12px",
-                border: "1.5px solid rgba(255,255,255,0.25)"
+                fontSize: "0.72rem",
+                color: "#7a8494",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                marginBottom: 2,
               }}
             >
-              {winOverlay.sub}
+              Last 10 Bets
             </div>
-          )}
+          <div style={{ fontSize: "0.82rem", color: "#3d4756" }}>
+              Shown on table above ↑
+            </div>
+          </div>
+          </div>
         </div>
-      )}
-    </div>
-  );
-}
 
-/* ─── Casino Action Button Sub-component ─── */
-function CasinoBtn({
-  onClick, grad, children, disabled = false,
-}: {
-  onClick: () => void; grad: string; children: React.ReactNode; disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={Boolean(disabled)}
-      suppressHydrationWarning
-      className="font-bold rounded-xl cursor-pointer border-0 font-cairo shadow-lg"
-      style={{
-        padding: "clamp(6px,2vw,10px) clamp(16px,4.5vw,24px)",
-        fontSize: "clamp(11px,2.8vw,14px)",
-        background: grad,
-        color: "white",
-        opacity: disabled ? 0.4 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-        transition: "all 0.2s ease",
-        boxShadow: disabled ? "none" : "0 4px 12px rgba(0,0,0,0.4)"
-      }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.transform = "translateY(-2px)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
-    >
-      {children}
-    </button>
+        {/* ── MAIN AREA ── */}
+        <div className="main-area">
+          <div className="game-container">
+            {/* Interactive Betting Table & Embedded Wheel */}
+            <div className="table-section">
+              <div
+                style={{
+                  fontSize: "0.62rem",
+                  color: "#7a8494",
+                  letterSpacing: 2,
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                  textAlign: "center",
+                }}
+              >
+                Click center = Straight • Near edge = Split • Corner = Corner
+                bet
+              </div>
+              <div className="svg-wrap">
+                {/* Wheel section - on desktop it's absolutely positioned inside svg-wrap,
+                    on mobile it's flow-positioned above the table via .wheel-section CSS */}
+                <div className={`wheel-section${wheelExpanded ? " expanded" : ""}`}>
+                  <div className="wheel-wrap">
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "50%",
+                        border: "5px solid #c0392b",
+                        boxShadow:
+                          "0 0 18px #c0392b,0 0 40px rgba(192,57,43,0.4),inset 0 0 20px rgba(192,57,43,0.1)",
+                        pointerEvents: "none",
+                        zIndex: 5,
+                      }}
+                    />
+                    <canvas ref={wheelCanvasRef} width={340} height={340} />
+                    {/* Ball layer */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        width: "100%",
+                        height: "100%",
+                        pointerEvents: "none",
+                        zIndex: 6,
+                      }}
+                    >
+                      <div
+                        ref={ballRef}
+                        style={{
+                          position: "absolute",
+                          width: 13,
+                          height: 13,
+                          background:
+                            "radial-gradient(circle at 32% 28%,#ffffff,#ddd 45%,#999)",
+                          borderRadius: "50%",
+                          boxShadow:
+                            "0 3px 10px rgba(0,0,0,0.8),inset 0 1px 4px rgba(255,255,255,0.95)",
+                          top: "0px",
+                          left: "0px",
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      />
+                    </div>
+                    {/* Fixed pointer arrow at 12 o'clock — marks where the winning number stops */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "-2px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: 0,
+                        height: 0,
+                        borderLeft: "9px solid transparent",
+                        borderRight: "9px solid transparent",
+                        borderTop: "20px solid #00d4ff",
+                        filter: "drop-shadow(0 0 5px #00d4ff) drop-shadow(0 0 14px rgba(0,212,255,0.7))",
+                        zIndex: 10,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </div>
+
+                  {/* Result */}
+                  <div style={{ textAlign: "center", marginTop: 12 }}>
+                    <div
+                      style={{
+                        fontFamily: "'Orbitron',monospace",
+                        fontSize: "clamp(1.6rem,4vw,2.4rem)",
+                        fontWeight: 900,
+                        minHeight: 44,
+                        letterSpacing: 3,
+                        color: resultColor,
+                        transition: "color 0.3s",
+                      }}
+                    >
+                      {resultNum !== null ? resultNum : "—"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "1.2rem",
+                        color: "#7a8494",
+                        letterSpacing: 2,
+                        marginTop: 2,
+                      }}
+                    >
+                      {resultLabel}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={spin}
+                    disabled={spinning}
+                    style={{
+                      background: "linear-gradient(135deg,#f5c842,#e6a020)",
+                      color: "#000",
+                      border: "none",
+                      borderRadius: 28,
+                      padding: "12px 50px",
+                      fontSize: "1.1rem",
+                      fontWeight: 900,
+                      fontFamily: "'Orbitron',monospace",
+                      cursor: spinning ? "not-allowed" : "pointer",
+                      letterSpacing: 2,
+                      textTransform: "uppercase",
+                      boxShadow: "0 4px 24px rgba(245,200,66,0.4)",
+                      opacity: spinning ? 0.45 : 1,
+                      transition: "transform 0.12s,box-shadow 0.12s",
+                      marginTop: 16,
+                      width: "100%",
+                      maxWidth: 280,
+                    }}
+                  >
+                    SPIN
+                  </button>
+                </div>
+
+                {/* Table image wrapper - canvas/overlay are absolute to this */}
+                <div ref={tableWrapRef} className="table-inner-wrap">
+                  <img
+                    src="/roulette/roulette-table.svg"
+                    alt="Roulette Table"
+                    draggable={false}
+                    style={{
+                      width: "100%",
+                      height: "auto",
+                      display: "block",
+                      userSelect: "none",
+                    }}
+                  />
+                  <canvas ref={chipCanvasRef} className="chip-canvas" />
+                  {hoverTarget ? (
+                    <div
+                      className="hover-highlight"
+                      style={{
+                        left: Math.max(0, hoverTarget.rect.left - 2),
+                        top: hoverTarget.rect.top,
+                        width: hoverTarget.rect.width,
+                        height: hoverTarget.rect.height,
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="click-overlay"
+                    onClick={onTableClick}
+                    onMouseMove={onTableHover}
+                    onMouseLeave={() => setHoverTarget(null)}
+                  />
+                    {/* Chip Selector embedded inside the table SVG area */}
+                  <div className="table-total-bet">
+                    <div className="total-bet-label">TOTAL BET</div>
+                    <div className="total-bet-value">{fmt(totalBet)}</div>
+                  </div>
+                  <div className="table-edit-toggle">
+                    <button
+                      type="button"
+                      onClick={() => setEditMode((v) => !v)}
+                      className={editMode ? "active" : ""}
+                    >
+                      {editMode ? "Done" : "Edit"}
+                    </button>
+                  </div>
+
+                  {/* Chip Selector embedded inside the table SVG area */}
+                  <div className="table-chip-selector">
+                    <ChipSelector
+                      value={chipValue}
+                      defaultValue={1}
+                      onSelect={(val) => {
+                        const cd = CHIP_DEFS.find((c) => c.value === val);
+                        if (!cd) return;
+                        setChipValue(cd.value);
+                        setChipCls(cd.cls);
+                        chipValueRef.current = cd.value;
+                        chipClsRef.current = cd.cls;
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
