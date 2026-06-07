@@ -25,7 +25,7 @@ export default function Home() {
   }, [router, startTransition]);
 
   return (
-    <div className="casino-bg h-screen relative overflow-hidden">
+    <div className="casino-bg min-h-screen relative">
       {/* Felt pattern overlay */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -35,8 +35,8 @@ export default function Home() {
         }}
       />
 
-      <main className="relative z-10 h-full flex flex-col justify-between">
-        {/* ── HEADER ── */}
+         <main className="relative z-10 flex flex-col">
+          {/* ── HEADER ── */}
         <header
           className="text-center border-b-2 relative"
           style={{
