@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AppProviders from "./components/AppProviders";
 
 export const metadata: Metadata = {
   title: "🎰 Casino Games Pro",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className="h-full">
-      <body className="h-full font-cairo">{children}</body>
+      <body className="h-full font-cairo">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

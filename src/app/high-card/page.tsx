@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import UserPanel from "../components/UserPanel";
+import { useFirebaseUser } from "../components/FirebaseProvider";
 
 /* ─── Card Data ─── */
 const SUITS = ["spades", "hearts", "clubs", "diamonds"] as const;
@@ -106,6 +108,7 @@ export default function HighCard() {
   const [selectedChip, setSelectedChip] = useState("chip-25");
   const [winOverlay, setWinOverlay] = useState<{ text: string; color: string } | null>(null);
   const chipId = useRef(0);
+  const { user } = useFirebaseUser();
 
   const deal = useCallback((deck: Card[]): [Card, Card[]] => {
     let d = deck;
@@ -205,6 +208,7 @@ export default function HighCard() {
         background: "linear-gradient(160deg,#0a0f0a 0%,#0d2818 50%,#0a0f0a 100%)",
       }}
     >
+      <UserPanel />
       {/* ─── HEADER ─── */}
       <div
         className="flex-shrink-0 flex items-center justify-between border-b-2"
@@ -227,15 +231,36 @@ export default function HighCard() {
         >
           ⬅ الرئيسية
         </Link>
-        <h1
-          className="font-playfair text-yellow-400"
-          style={{
-            fontSize: "clamp(14px,4vw,22px)",
-            textShadow: "0 0 15px rgba(245,197,24,0.6)",
-          }}
-        >
-          🎯 HIGH CARD
-        </h1>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+          <h1
+            className="font-playfair text-yellow-400"
+            style={{
+              fontSize: "clamp(14px,4vw,22px)",
+              textShadow: "0 0 15px rgba(245,197,24,0.6)",
+              margin: 0,
+            }}
+          >
+            🎯 HIGH CARD
+          </h1>
+          {user ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                background: "rgba(255,255,255,0.06)",
+                padding: "4px 10px",
+                borderRadius: "999px",
+                border: "1px solid rgba(245,197,24,0.25)",
+              }}
+            >
+              <span style={{ color: "#a5f3fc", fontSize: "11px" }}>رصيد الكارد قيمز</span>
+              <span style={{ color: "#f5c518", fontWeight: 800, fontSize: "clamp(12px,3vw,16px)" }}>
+                ${user.balances.cards.toLocaleString()}
+              </span>
+            </div>
+          ) : null}
+        </div>
         <div style={{ width: "72px" }} />
       </div>
 
@@ -464,16 +489,19 @@ function PlayerSlot({
           />
         ) : (
           <div
-            className="flex items-center justify-center rounded-md"
+            className="rounded-md overflow-hidden"
             style={{
               width: "100%",
               aspectRatio: "5/7",
-              background: "linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 50%,#1e3a8a 100%)",
-              fontSize: "clamp(28px,12vw,56px)",
-              color: "rgba(255,255,255,0.5)",
             }}
           >
-            🂠
+            <Image
+              src="/assets/back.png"
+              alt="card back"
+              width={145}
+              height={200}
+              className="w-full h-full object-cover"
+            />
           </div>
         )}
       </div>

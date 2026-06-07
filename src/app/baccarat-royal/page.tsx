@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import UserPanel from "../components/UserPanel";
+import { useFirebaseUser } from "../components/FirebaseProvider";
 
 /* ─── Card Data ─── */
 const SUITS = ["spades", "hearts", "clubs", "diamonds"] as const;
@@ -451,10 +453,8 @@ function BacCardRow({ hand }: { hand: Card[] }) {
             className="w-full h-full object-cover block"
             onError={(e) => {
               const t = e.currentTarget;
-              t.style.display = "none";
-              if (t.parentElement) {
-                t.parentElement.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#111;font-size:16px;font-weight:900;background:#fff">${card.label}</div>`;
-              }
+              t.src = "/assets/back.png";
+              t.alt = "card back";
             }}
           />
         </div>

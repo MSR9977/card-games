@@ -1,11 +1,31 @@
 "use client";
 
+import { useState, useTransition, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import UserPanel from "./components/UserPanel";
+import { AnimatedCircularProgressBar } from "./components/AnimatedCircularProgressBar";
 
 export default function Home() {
+  const router = useRouter();
+  const [isLoadingRoulette, setIsLoadingRoulette] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const handleRouletteClick = () => {
+    if (isLoadingRoulette) return;
+    setIsLoadingRoulette(true);
+  };
+
+  // يُستدعى بعد انتهاء اللفة الكاملة → ننتقل للروليت
+  const handleSpinComplete = useCallback(() => {
+    startTransition(() => {
+      router.push("/roulette");
+    });
+  }, [router, startTransition]);
+
   return (
-    <div className="casino-bg min-h-screen relative">
+    <div className="casino-bg h-screen relative overflow-hidden">
       {/* Felt pattern overlay */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -15,7 +35,7 @@ export default function Home() {
         }}
       />
 
-      <main className="relative z-10">
+      <main className="relative z-10 h-full flex flex-col justify-between">
         {/* ── HEADER ── */}
         <header
           className="text-center border-b-2 relative"
@@ -56,6 +76,8 @@ export default function Home() {
             منصة الألعاب الورقية الاحترافية
           </p>
         </header>
+
+        <UserPanel />
 
         {/* ── STATS STRIP ── */}
         <div
@@ -130,12 +152,12 @@ export default function Home() {
 
         {/* ── GAMES GRID ── */}
         <div
-          className="grid gap-6 mx-auto"
+          className="grid gap-10 mx-auto"
           style={{
-            gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
-            maxWidth: "1200px",
-            margin: "clamp(20px,5vw,50px) auto",
-            padding: "0 clamp(12px,4vw,30px)",
+            gridTemplateColumns: "repeat(4,minmax(160px,1fr))",
+            maxWidth: "2000px",
+            margin: "clamp(2px,25vw,28px) auto",
+            padding: "0 clamp(8px,2.5vw,18px)",
           }}
         >
           <GameCard
@@ -197,9 +219,37 @@ export default function Home() {
               "واجهة مستخدم متجاوبة تماماً",
             ]}
             btnLabel="🎡 العب الآن"
+            onClick={handleRouletteClick}
+            disabled={isLoadingRoulette || isPending}
           />
         </div>
       </main>
+
+      {/* ── LOADING OVERLAY ── */}
+      {(isLoadingRoulette || isPending) && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 px-6"
+          style={{ backdropFilter: "blur(10px)" }}
+        >
+          <div className="flex flex-col items-center gap-6 text-center text-white">
+            <AnimatedCircularProgressBar
+              gaugePrimaryColor="#f5c518"
+              gaugeSecondaryColor="#1e293b"
+              gifSrc="/wheel.gif"
+              gifAlt="تحميل الروليت"
+              size={320}
+              duration={10000}
+              onComplete={handleSpinComplete}
+            />
+            <p
+              className="text-slate-300"
+              style={{ fontSize: "clamp(15px,3vw,20px)", maxWidth: 360 }}
+            >
+              جاري تحميل لعبة الروليت…
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── FOOTER ── */}
       <footer
@@ -226,6 +276,8 @@ function GameCard({
   features,
   btnLabel,
   iconDelay,
+  onClick,
+  disabled,
 }: {
   href: string;
   icon: string;
@@ -234,7 +286,104 @@ function GameCard({
   features: string[];
   btnLabel: string;
   iconDelay: string;
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
+  const content = (
+    <>
+      <div
+        className="absolute top-0 left-0 right-0 h-0.5 opacity-0 hover:opacity-100"
+        style={{ background: "linear-gradient(90deg,transparent,#f5c518,transparent)" }}
+      />
+      <span
+        className="block animate-float-icon mb-2"
+        style={{ fontSize: "clamp(32px,10vw,52px)", animationDelay: iconDelay }}
+      >
+        {icon}
+      </span>
+      <div
+        className="font-playfair font-black mb-2"
+        style={{ fontSize: "clamp(18px,5vw,28px)" }}
+      >
+        {title}
+      </div>
+      <div
+        className="text-slate-400 mb-4"
+        style={{ fontSize: "clamp(11px,2.5vw,13px)", lineHeight: 1.6 }}
+      >
+        {desc}
+      </div>
+      <ul
+        className="text-right rounded-xl mb-4"
+        style={{
+          background: "rgba(0,0,0,0.3)",
+          padding: "clamp(8px,2vw,12px) clamp(10px,2.5vw,16px)",
+          borderRight: "3px solid #f5c518",
+          listStyle: "none",
+        }}
+      >
+        {features.map((f) => (
+          <li
+            key={f}
+            className="text-slate-400 py-0.5 flex items-center gap-2"
+            style={{ fontSize: "clamp(10px,2.2vw,12px)" }}
+          >
+            <span className="text-green-400 font-black text-sm flex-shrink-0">✓</span>
+            {f}
+          </li>
+        ))}
+      </ul>
+      <div
+        className="inline-block font-black rounded-full"
+        style={{
+          background: "linear-gradient(135deg,#f5c518,#d4a017)",
+          color: "#000",
+          fontSize: "clamp(11px,2.5vw,14px)",
+          padding: "clamp(8px,2vw,12px) clamp(18px,4vw,32px)",
+          letterSpacing: "1px",
+          boxShadow: "0 4px 20px rgba(245,197,24,0.35)",
+        }}
+      >
+        {btnLabel}
+      </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="game-card-link block text-white no-underline rounded-2xl text-center cursor-pointer relative overflow-hidden"
+        style={{
+          background: "linear-gradient(145deg,#0f1f0f,#0a1510)",
+          border: "1.5px solid rgba(255,255,255,0.08)",
+          padding: "clamp(10px,2.5vw,16px) clamp(10px,3vw,18px)",
+          transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1),border-color 0.3s,box-shadow 0.3s",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.7 : 1,
+        }}
+        onMouseEnter={(e) => {
+          if (!disabled) {
+            const el = e.currentTarget;
+            el.style.transform = "translateY(-10px) scale(1.02)";
+            el.style.borderColor = "rgba(245,197,24,0.6)";
+            el.style.boxShadow = "0 20px 50px rgba(0,0,0,0.7),0 0 30px rgba(245,197,24,0.15)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget;
+          el.style.transform = "";
+          el.style.borderColor = "rgba(255,255,255,0.08)";
+          el.style.boxShadow = "";
+        }}
+      >
+        {content}
+      </button>
+    );
+  }
+
   return (
     <Link
       href={href}
@@ -242,7 +391,7 @@ function GameCard({
       style={{
         background: "linear-gradient(145deg,#0f1f0f,#0a1510)",
         border: "1.5px solid rgba(255,255,255,0.08)",
-        padding: "clamp(20px,5vw,40px) clamp(16px,4vw,32px)",
+        padding: "clamp(10px,2.5vw,16px) clamp(10px,3vw,18px)",
         transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1),border-color 0.3s,box-shadow 0.3s",
         textDecoration: "none",
       }}
@@ -259,72 +408,7 @@ function GameCard({
         el.style.boxShadow = "";
       }}
     >
-      {/* Shimmer top line */}
-      <div
-        className="absolute top-0 left-0 right-0 h-0.5 opacity-0 hover:opacity-100"
-        style={{ background: "linear-gradient(90deg,transparent,#f5c518,transparent)" }}
-      />
-
-      {/* Icon */}
-      <span
-        className="block animate-float-icon mb-3"
-        style={{ fontSize: "clamp(42px,12vw,72px)", animationDelay: iconDelay }}
-      >
-        {icon}
-      </span>
-
-      {/* Title */}
-      <div
-        className="font-playfair font-black mb-2"
-        style={{ fontSize: "clamp(22px,6vw,36px)" }}
-      >
-        {title}
-      </div>
-
-      {/* Desc */}
-      <div
-        className="text-slate-400 mb-4"
-        style={{ fontSize: "clamp(12px,2.8vw,15px)", lineHeight: 1.6 }}
-      >
-        {desc}
-      </div>
-
-      {/* Features */}
-      <ul
-        className="text-right rounded-xl mb-4"
-        style={{
-          background: "rgba(0,0,0,0.3)",
-          padding: "clamp(10px,2.5vw,16px) clamp(12px,3vw,20px)",
-          borderRight: "3px solid #f5c518",
-          listStyle: "none",
-        }}
-      >
-        {features.map((f) => (
-          <li
-            key={f}
-            className="text-slate-400 py-0.5 flex items-center gap-2"
-            style={{ fontSize: "clamp(11px,2.5vw,13px)" }}
-          >
-            <span className="text-green-400 font-black text-sm flex-shrink-0">✓</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-
-      {/* Play button */}
-      <div
-        className="inline-block font-black rounded-full"
-        style={{
-          background: "linear-gradient(135deg,#f5c518,#d4a017)",
-          color: "#000",
-          fontSize: "clamp(12px,3vw,16px)",
-          padding: "clamp(10px,2.5vw,16px) clamp(22px,6vw,44px)",
-          letterSpacing: "1px",
-          boxShadow: "0 4px 20px rgba(245,197,24,0.35)",
-        }}
-      >
-        {btnLabel}
-      </div>
+      {content}
     </Link>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import UserPanel from "../components/UserPanel";
+import { useFirebaseUser } from "../components/FirebaseProvider";
 
 /* ══════════════════════════════════════════════
    CARD DATA & UTILITIES
@@ -119,6 +121,29 @@ export default function Blackjack() {
   const [lastBet, setLastBet] = useState(0);
   const chipId = useRef(0);
   const roundRef = useRef(0);
+
+  const { user, updateBalance } = useFirebaseUser();
+  const syncedUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      syncedUserId.current = null;
+      return;
+    }
+
+    if (syncedUserId.current === user.uid) return;
+
+    if (typeof user.balances?.cards === "number") {
+      setBalance(user.balances.cards);
+      syncedUserId.current = user.uid;
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && typeof user.balances?.cards === "number" && user.balances.cards !== balance) {
+      updateBalance("cards", balance);
+    }
+  }, [balance, user, updateBalance]);
 
   const dealCard = useCallback((d: Card[]): [Card, Card[]] => {
     if (d.length < 20) d = buildFullDeck();
@@ -466,6 +491,7 @@ export default function Blackjack() {
         fontFamily: "'Cairo', sans-serif",
       }}
     >
+      <UserPanel />
       {/* ══ HEADER ══ */}
       <header
         style={{
@@ -1013,8 +1039,8 @@ function CardRow({
 }: {
   hand: Card[]; hideSecond: boolean; bustAnim: boolean; size?: "md" | "lg";
 }) {
-  const cardW = size === "lg" ? "clamp(68px,14vw,110px)" : "clamp(50px,10vw,72px)";
-  const cardH = size === "lg" ? "clamp(96px,20vw,155px)" : "clamp(70px,14vw,102px)";
+  const cardW = size === "lg" ? "clamp(56px,12vw,94px)" : "clamp(46px,9vw,68px)";
+  const cardH = size === "lg" ? "clamp(84px,18vw,124px)" : "clamp(70px,14vw,98px)";
 
   return (
     <div
@@ -1025,7 +1051,7 @@ function CardRow({
         alignItems: "center",
         gap: "clamp(4px,1.5vw,10px)",
         flexWrap: "wrap",
-        minHeight: size === "lg" ? "clamp(96px,20vw,155px)" : "clamp(70px,14vw,102px)",
+        minHeight: size === "lg" ? "clamp(84px,18vw,124px)" : "clamp(70px,14vw,98px)",
       }}
     >
       {hand.map((card, i) => (
@@ -1050,19 +1076,13 @@ function CardRow({
           }}
         >
           {hideSecond && i === 1 ? (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                background: "linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 50%,#1e3a8a 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "clamp(24px,6vw,48px)",
-              }}
-            >
-              🂠
-            </div>
+            <Image
+              src="/assets/back.png"
+              alt="card back"
+              width={110}
+              height={155}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
           ) : (
             <Image
               src={card.img}
