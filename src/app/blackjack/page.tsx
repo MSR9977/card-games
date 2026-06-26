@@ -483,12 +483,14 @@ export default function Blackjack() {
   return (
     <div
       style={{
-        height: "100dvh",
+        minHeight: "100dvh",
         background: "linear-gradient(160deg,#020d08 0%,#0a2218 40%,#061410 100%)",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflowX: "hidden",
+        overflowY: "auto",
         fontFamily: "'Cairo', sans-serif",
+        paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
       <UserPanel />
@@ -499,7 +501,8 @@ export default function Blackjack() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "8px 16px",
+          gap: "clamp(6px,2vw,12px)",
+          padding: "clamp(6px,1.8vw,10px) clamp(10px,3vw,16px)",
           background: "linear-gradient(90deg,#040e08,#0d2818,#040e08)",
           borderBottom: "2px solid #f5c518",
           boxShadow: "0 2px 20px rgba(245,197,24,0.15)",
@@ -511,28 +514,30 @@ export default function Blackjack() {
             background: "rgba(0,0,0,0.5)",
             border: "1.5px solid #444",
             borderRadius: "10px",
-            padding: "6px 14px",
+            padding: "clamp(5px,1.6vw,6px) clamp(9px,2.5vw,14px)",
             color: "#aaa",
-            fontSize: "13px",
+            fontSize: "clamp(11px,2.7vw,13px)",
             textDecoration: "none",
             fontFamily: "'Cairo', sans-serif",
+            whiteSpace: "nowrap",
           }}
         >
-          ⬅ الرئيسية
+          ← الرئيسية
         </Link>
 
-        <div style={{ textAlign: "center" }}>
+        <div style={{ textAlign: "center", minWidth: 0 }}>
           <h1
             className="font-playfair"
             style={{
-              fontSize: "clamp(16px,4vw,26px)",
+              fontSize: "clamp(15px,4.5vw,26px)",
               color: "#f5c518",
               textShadow: "0 0 20px rgba(245,197,24,0.7)",
-              letterSpacing: "2px",
+              letterSpacing: "1px",
               margin: 0,
+              lineHeight: 1.05,
             }}
           >
-            🎰 BLACKJACK PRO
+            BLACKJACK PRO
           </h1>
           <div style={{ fontSize: "10px", color: "#555", letterSpacing: "1px" }}>
             AI DEALER • 6-DECK SHOE
@@ -545,9 +550,10 @@ export default function Blackjack() {
             background: "linear-gradient(135deg,rgba(0,0,0,0.7),rgba(20,50,30,0.7))",
             border: "1.5px solid #f5c518",
             borderRadius: "14px",
-            padding: "6px 14px",
+            padding: "clamp(5px,1.5vw,6px) clamp(8px,2.4vw,14px)",
             textAlign: "center",
-            minWidth: "100px",
+            minWidth: "clamp(86px,24vw,110px)",
+            flexShrink: 0,
           }}
         >
           <div style={{ fontSize: "9px", color: "#888", letterSpacing: "1px" }}>💰 رصيدك</div>
@@ -569,12 +575,12 @@ export default function Blackjack() {
       {/* ══ TABLE ══ */}
       <div
         style={{
-          flex: 1,
+          flex: "1 1 auto",
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
-          padding: "8px 16px",
-          gap: "8px",
+          overflow: "visible",
+          padding: "clamp(6px,2vw,8px) clamp(10px,3vw,16px)",
+          gap: "clamp(6px,1.8vw,8px)",
           minHeight: 0,
         }}
       >
@@ -615,7 +621,7 @@ export default function Blackjack() {
             textAlign: "center",
             fontWeight: 900,
             fontSize: "clamp(12px,3vw,18px)",
-            padding: "8px 20px",
+            padding: "clamp(7px,2vw,8px) clamp(10px,3vw,20px)",
             borderRadius: "14px",
             border: `2px solid ${sc.border}`,
             color: sc.color,
@@ -653,8 +659,9 @@ export default function Blackjack() {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            gap: "clamp(10px,3vw,22px)",
-            padding: "10px 16px 6px",
+            gap: "clamp(7px,2.4vw,22px)",
+            padding: "clamp(7px,2vw,10px) clamp(10px,3vw,16px) 4px",
+            flexWrap: "wrap",
           }}
         >
           {CHIPS.map((c) => (
@@ -679,8 +686,8 @@ export default function Blackjack() {
                 height={64}
                 className={`chip-img ${selectedChip === c.cls ? "selected" : ""}`}
                 style={{
-                  width: "clamp(44px,11vw,64px)",
-                  height: "clamp(44px,11vw,64px)",
+                  width: "clamp(38px,10vw,64px)",
+                  height: "clamp(38px,10vw,64px)",
                   display: "block",
                 }}
               />
@@ -694,8 +701,8 @@ export default function Blackjack() {
             display: "flex",
             justifyContent: "center",
             flexWrap: "wrap",
-            gap: "clamp(6px,2vw,12px)",
-            padding: "6px 16px 8px",
+            gap: "clamp(6px,1.8vw,12px)",
+            padding: "6px clamp(8px,2.5vw,16px)",
           }}
         >
           <ActionBtn
@@ -760,8 +767,9 @@ export default function Blackjack() {
           style={{
             display: "flex",
             justifyContent: "center",
+            flexWrap: "wrap",
             gap: "8px",
-            padding: "4px 16px 8px",
+            padding: "2px clamp(8px,2.5vw,16px) 8px",
             fontSize: "clamp(10px,2.2vw,13px)",
           }}
         >
@@ -855,7 +863,7 @@ function DealerZone({
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "6px",
+        gap: "clamp(4px,1.4vw,6px)",
       }}
     >
       {/* Label row */}
@@ -933,8 +941,8 @@ function BetArea({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: "10px",
-        padding: "4px 12px",
+        gap: "clamp(6px,2vw,10px)",
+        padding: "2px clamp(8px,2.5vw,12px)",
       }}
     >
       <div
@@ -945,9 +953,9 @@ function BetArea({
           background: "rgba(0,0,0,0.45)",
           border: "1.5px dashed rgba(245,197,24,0.4)",
           borderRadius: "14px",
-          padding: "5px 14px",
-          minHeight: "44px",
-          minWidth: "100px",
+          padding: "clamp(4px,1.3vw,5px) clamp(10px,3vw,14px)",
+          minHeight: "clamp(36px,9vw,44px)",
+          minWidth: "clamp(86px,24vw,100px)",
           flexWrap: "wrap",
           justifyContent: "center",
         }}
@@ -961,7 +969,7 @@ function BetArea({
             width={30}
             height={30}
             className="animate-chip-bounce-in"
-            style={{ width: "30px", height: "30px", flexShrink: 0 }}
+            style={{ width: "clamp(24px,7vw,30px)", height: "clamp(24px,7vw,30px)", flexShrink: 0 }}
           />
         ))}
         <span
@@ -990,8 +998,8 @@ function PlayerZone({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "flex-end",
-        gap: "6px",
-        minHeight: 0,
+        gap: "clamp(4px,1.4vw,6px)",
+        minHeight: "clamp(128px,30vh,260px)",
       }}
     >
       {/* Score */}
@@ -1039,8 +1047,8 @@ function CardRow({
 }: {
   hand: Card[]; hideSecond: boolean; bustAnim: boolean; size?: "md" | "lg";
 }) {
-  const cardW = size === "lg" ? "clamp(56px,12vw,94px)" : "clamp(46px,9vw,68px)";
-  const cardH = size === "lg" ? "clamp(84px,18vw,124px)" : "clamp(70px,14vw,98px)";
+  const cardW = size === "lg" ? "clamp(46px,13vw,94px)" : "clamp(40px,10vw,68px)";
+  const cardH = size === "lg" ? "clamp(68px,19vw,124px)" : "clamp(60px,15vw,98px)";
 
   return (
     <div
@@ -1051,7 +1059,7 @@ function CardRow({
         alignItems: "center",
         gap: "clamp(4px,1.5vw,10px)",
         flexWrap: "wrap",
-        minHeight: size === "lg" ? "clamp(84px,18vw,124px)" : "clamp(70px,14vw,98px)",
+        minHeight: size === "lg" ? "clamp(68px,19vw,124px)" : "clamp(60px,15vw,98px)",
       }}
     >
       {hand.map((card, i) => (
@@ -1116,15 +1124,15 @@ function ActionBtn({
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: "clamp(8px,2vw,13px) clamp(12px,3.5vw,26px)",
-        fontSize: "clamp(11px,2.8vw,15px)",
+        padding: "clamp(7px,1.8vw,13px) clamp(10px,3vw,26px)",
+        fontSize: "clamp(10px,2.7vw,15px)",
         background: disabled ? "rgba(50,50,50,0.6)" : grad,
         color: disabled ? "#555" : "white",
         border: "none",
-        borderRadius: "12px",
+        borderRadius: "10px",
         fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
-        minWidth: "clamp(60px,14vw,90px)",
+        minWidth: "clamp(58px,16vw,90px)",
         transition: "all 0.2s ease",
         boxShadow: !disabled && glow ? `0 4px 15px ${glow}` : "none",
         fontFamily: "'Cairo', sans-serif",
