@@ -78,6 +78,7 @@ function ArrowButton({ direction, disabled, onClick }: ArrowButtonProps) {
     <button
       onClick={onClick}
       disabled={disabled}
+      suppressHydrationWarning
       aria-label={direction === "left" ? "Previous chip" : "Next chip"}
       className={[
         // sizing – scales with viewport
@@ -93,7 +94,6 @@ function ArrowButton({ direction, disabled, onClick }: ArrowButtonProps) {
         viewBox="0 0 14 14"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        // icon scales with the button
         className="w-3 h-3 sm:w-3.5 sm:h-3.5"
       >
         {direction === "left" ? (

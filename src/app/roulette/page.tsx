@@ -1703,9 +1703,21 @@ export default function Roulette() {
             padding: 1px;
           }
 
-          /* ── Main area ── */
-          .main-area { padding: 6px 6px 100px; }
-          .game-container { flex-direction: column; gap: 8px; }
+          /* ── Main area: no horizontal padding so table fills screen ── */
+          .main-area {
+            padding: 6px 0 100px;
+            align-items: stretch;
+          }
+          .game-container {
+            flex-direction: column;
+            gap: 8px;
+            align-items: stretch;
+            width: 100%;
+          }
+          .table-section {
+            width: 100%;
+            align-items: stretch;
+          }
 
           /* ── Wheel: centered, good size ── */
           .wheel-section {
@@ -1714,6 +1726,7 @@ export default function Roulette() {
             width: 100%;
             align-items: center;
             margin: 0 auto;
+            padding: 0 6px;
           }
           .wheel-wrap {
             width: clamp(220px, 74vw, 300px);
@@ -1722,7 +1735,7 @@ export default function Roulette() {
           .result-number { font-size: 32px; }
           .spin-btn { width: 100%; max-width: 280px; }
 
-          /* ── Table: fill full width, no horizontal scroll ── */
+          /* ── Table: true full viewport width ── */
           .svg-wrap {
             display: block;
             width: 100%;
@@ -1733,6 +1746,7 @@ export default function Roulette() {
             width: 100%;
             position: relative;
           }
+
 
           /* ── ChipSelector: fixed floating bar at BOTTOM of screen ── */
           .table-chip-selector {
