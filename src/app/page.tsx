@@ -35,12 +35,12 @@ export default function Home() {
         }}
       />
 
-         <main className="relative z-10 flex flex-col">
+        <main className="relative z-10 flex flex-col overflow-x-hidden">
           {/* ── HEADER ── */}
         <header
           className="text-center border-b-2 relative"
           style={{
-            padding: "clamp(28px,6vw,60px) 20px clamp(20px,4vw,40px)",
+            padding: "clamp(24px,7vw,60px) clamp(12px,4vw,20px) clamp(18px,5vw,40px)",
             borderColor: "rgba(245,197,24,0.3)",
           }}
         >
@@ -54,7 +54,7 @@ export default function Home() {
           <div className="flex items-center justify-center gap-3 mb-2">
             <span
               className="text-3xl sm:text-4xl"
-              style={{ letterSpacing: "4px" }}
+              style={{ letterSpacing: "clamp(2px,1vw,4px)" }}
             >
               ♠️♥️♣️♦️
             </span>
@@ -62,8 +62,9 @@ export default function Home() {
           <h1
             className="font-playfair font-black text-yellow-400 animate-title-glow"
             style={{
-              fontSize: "clamp(28px,8vw,58px)",
-              letterSpacing: "2px",
+              fontSize: "clamp(34px,10vw,58px)",
+              letterSpacing: "0",
+              lineHeight: 1.06,
               textShadow: "0 0 30px rgba(245,197,24,0.5),0 4px 20px rgba(0,0,0,0.8)",
             }}
           >
@@ -71,7 +72,7 @@ export default function Home() {
           </h1>
           <p
             className="text-slate-500 uppercase mt-1"
-            style={{ fontSize: "clamp(11px,2.5vw,16px)", letterSpacing: "3px" }}
+            style={{ fontSize: "clamp(11px,2.8vw,16px)", letterSpacing: "clamp(1px,0.8vw,3px)" }}
           >
             منصة الألعاب الورقية الاحترافية
           </p>
@@ -83,8 +84,9 @@ export default function Home() {
         <div
           className="flex justify-center border-b"
           style={{
+            flexWrap: "wrap",
             gap: "clamp(8px,3vw,24px)",
-            padding: "clamp(14px,3vw,24px) 20px",
+            padding: "clamp(12px,3vw,24px) clamp(10px,4vw,20px)",
             borderColor: "rgba(255,255,255,0.05)",
           }}
         >
@@ -100,6 +102,7 @@ export default function Home() {
                 background: "rgba(245,197,24,0.07)",
                 borderColor: "rgba(245,197,24,0.25)",
                 padding: "clamp(8px,2vw,14px) clamp(14px,4vw,28px)",
+                minWidth: "clamp(96px,28vw,150px)",
               }}
             >
               <div
@@ -121,7 +124,11 @@ export default function Home() {
         {/* ── CHIPS DECORATION ── */}
         <div
           className="flex justify-center"
-          style={{ gap: "clamp(6px,2vw,12px)", padding: "clamp(10px,3vw,20px) 20px" }}
+          style={{
+            flexWrap: "wrap",
+            gap: "clamp(6px,2vw,12px)",
+            padding: "clamp(10px,3vw,20px) clamp(10px,4vw,20px)",
+          }}
         >
           {[
             { label: "$5", img: "/assets/5_chip.svg", delay: "0s" },
@@ -152,12 +159,15 @@ export default function Home() {
 
         {/* ── GAMES GRID ── */}
         <div
-          className="grid gap-10 mx-auto"
+          className="grid mx-auto"
           style={{
-            gridTemplateColumns: "repeat(4,minmax(160px,1fr))",
-            maxWidth: "2000px",
-            margin: "clamp(2px,25vw,28px) auto",
-            padding: "0 clamp(8px,2.5vw,18px)",
+            width: "100%",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 230px), 1fr))",
+            gap: "clamp(16px,4vw,40px)",
+            maxWidth: "1180px",
+            margin: "clamp(12px,5vw,28px) auto",
+            padding: "0 clamp(12px,4vw,18px)",
+            alignItems: "stretch",
           }}
         >
           <GameCard
@@ -297,19 +307,19 @@ function GameCard({
       />
       <span
         className="block animate-float-icon mb-2"
-        style={{ fontSize: "clamp(32px,10vw,52px)", animationDelay: iconDelay }}
+        style={{ fontSize: "clamp(34px,10vw,52px)", animationDelay: iconDelay, lineHeight: 1 }}
       >
         {icon}
       </span>
       <div
         className="font-playfair font-black mb-2"
-        style={{ fontSize: "clamp(18px,5vw,28px)" }}
+        style={{ fontSize: "clamp(24px,7vw,30px)", lineHeight: 1.15 }}
       >
         {title}
       </div>
       <div
         className="text-slate-400 mb-4"
-        style={{ fontSize: "clamp(11px,2.5vw,13px)", lineHeight: 1.6 }}
+        style={{ fontSize: "clamp(12px,3.2vw,14px)", lineHeight: 1.55 }}
       >
         {desc}
       </div>
@@ -320,16 +330,19 @@ function GameCard({
           padding: "clamp(8px,2vw,12px) clamp(10px,2.5vw,16px)",
           borderRight: "3px solid #f5c518",
           listStyle: "none",
+          flex: 1,
         }}
       >
         {features.map((f) => (
           <li
             key={f}
-            className="text-slate-400 py-0.5 flex items-center gap-2"
-            style={{ fontSize: "clamp(10px,2.2vw,12px)" }}
+            className="text-slate-400 py-0.5 flex items-start gap-2"
+            style={{ fontSize: "clamp(11px,2.8vw,13px)", lineHeight: 1.45 }}
           >
-            <span className="text-green-400 font-black text-sm flex-shrink-0">✓</span>
-            {f}
+            <span className="text-green-400 font-black text-sm flex-shrink-0" style={{ lineHeight: 1.45 }}>
+              ✓
+            </span>
+            <span>{f}</span>
           </li>
         ))}
       </ul>
@@ -338,10 +351,12 @@ function GameCard({
         style={{
           background: "linear-gradient(135deg,#f5c518,#d4a017)",
           color: "#000",
-          fontSize: "clamp(11px,2.5vw,14px)",
+          fontSize: "clamp(12px,3vw,14px)",
           padding: "clamp(8px,2vw,12px) clamp(18px,4vw,32px)",
           letterSpacing: "1px",
           boxShadow: "0 4px 20px rgba(245,197,24,0.35)",
+          alignSelf: "center",
+          maxWidth: "100%",
         }}
       >
         {btnLabel}
@@ -357,12 +372,18 @@ function GameCard({
         disabled={disabled}
         className="game-card-link block text-white no-underline rounded-2xl text-center cursor-pointer relative overflow-hidden"
         style={{
+          width: "100%",
+          minHeight: "100%",
           background: "linear-gradient(145deg,#0f1f0f,#0a1510)",
           border: "1.5px solid rgba(255,255,255,0.08)",
-          padding: "clamp(10px,2.5vw,16px) clamp(10px,3vw,18px)",
+          padding: "clamp(16px,4vw,24px) clamp(14px,4vw,20px)",
           transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1),border-color 0.3s,box-shadow 0.3s",
           cursor: disabled ? "not-allowed" : "pointer",
           opacity: disabled ? 0.7 : 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          fontFamily: "inherit",
         }}
         onMouseEnter={(e) => {
           if (!disabled) {
@@ -389,11 +410,16 @@ function GameCard({
       href={href}
       className="game-card-link block text-white no-underline rounded-2xl text-center cursor-pointer relative overflow-hidden"
       style={{
+        width: "100%",
+        minHeight: "100%",
         background: "linear-gradient(145deg,#0f1f0f,#0a1510)",
         border: "1.5px solid rgba(255,255,255,0.08)",
-        padding: "clamp(10px,2.5vw,16px) clamp(10px,3vw,18px)",
+        padding: "clamp(16px,4vw,24px) clamp(14px,4vw,20px)",
         transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1),border-color 0.3s,box-shadow 0.3s",
         textDecoration: "none",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
