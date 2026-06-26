@@ -661,7 +661,9 @@ export default function Roulette() {
         const cx = svgX * scaleX;
         const cy = svgY * scaleY;
         const img = chipImagesRef.current[cls];
-        const rad = 19;
+        // Scale chip radius with display size so chips stay proportional on small screens
+        const rad = Math.max(8, Math.round(19 * Math.min(1, scaleX)));
+        const fontSize = Math.max(7, Math.round(11 * Math.min(1, scaleX)));
 
         if (img && img.complete && img.naturalWidth !== 0) {
           ctx.beginPath();
@@ -683,7 +685,7 @@ export default function Roulette() {
           ctx.fillStyle = g;
           ctx.fill();
           ctx.beginPath();
-          ctx.arc(cx, cy, rad - 4, 0, 2 * Math.PI);
+          ctx.arc(cx, cy, Math.max(4, rad - 4), 0, 2 * Math.PI);
           ctx.strokeStyle = "rgba(255,255,255,0.25)";
           ctx.lineWidth = 1.5;
           ctx.setLineDash([3, 3]);
@@ -693,11 +695,11 @@ export default function Roulette() {
 
         const lbl = amount >= 1000 ? (amount / 1000).toFixed(0) + "K" : String(amount);
         ctx.fillStyle = "#fff";
-        ctx.font = 'bold 11px "Orbitron",monospace';
+        ctx.font = `bold ${fontSize}px "Orbitron",monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.strokeStyle = "rgba(39, 39, 39, 0.35)";
-        ctx.lineWidth = 5;
+        ctx.lineWidth = Math.max(3, 5 * Math.min(1, scaleX));
         ctx.strokeText(lbl, cx, cy);
         ctx.fillText(lbl, cx, cy);
       };
@@ -1626,12 +1628,27 @@ export default function Roulette() {
           }
         }
 
+        /* ── Chip grid item (side panel) ── */
+        .chip-grid-item {
+          aspect-ratio: 1;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.15s, box-shadow 0.15s;
+          user-select: none;
+          background: rgba(255,255,255,0.03);
+          padding: 2px;
+        }
+
         @media (max-width: 679px) {
+          /* ── Sticky header ── */
           .mobile-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 9px 14px;
+            padding: 8px 12px;
             background: #0a0d12;
             border-bottom: 1px solid #1e2530;
             position: sticky;
@@ -1640,36 +1657,57 @@ export default function Roulette() {
           }
           .mobile-header-balance { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
           .mobile-header-balance .lbl { font-size: 0.5rem; color: #7a8494; text-transform: uppercase; letter-spacing: 1.5px; }
-          .mobile-header-balance .val { font-family: 'Orbitron',monospace; font-size: 0.95rem; font-weight: 700; color: #f5c842; }
+          .mobile-header-balance .val { font-family: 'Orbitron',monospace; font-size: 0.9rem; font-weight: 700; color: #f5c842; }
 
           .desktop-only-balance { display: none !important; }
 
-          .game-layout { flex-direction: column; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+          /* ── Layout ── */
+          .game-layout {
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+          }
 
+          /* ── Side panel: compact column ── */
           .side-panel {
             width: 100%;
             min-width: unset;
+            max-height: none;
             border-right: none;
             border-bottom: 1px solid #1e2530;
             flex-direction: column;
-            padding: 12px 14px;
-            gap: 10px;
+            padding: 10px 12px;
+            gap: 8px;
             overflow: visible;
           }
-          .side-panel-toggle { width: 100%; }
-          .side-panel-body { flex: none; width: 100%; overflow: visible; max-height: none; }
+          .side-panel-toggle { width: 100%; min-height: 38px; }
+          .side-panel-body {
+            flex: none;
+            width: 100%;
+            overflow: visible;
+            max-height: none;
+            gap: 8px;
+          }
           .side-panel-body > div  { flex: none; width: 100%; }
           .side-panel-body > button { width: 100%; }
-          .side-panel.side-panel-collapsed {
-            width: 100%;
-            min-width: unset;
-            padding: 8px 14px;
+          .side-panel.side-panel-collapsed { width: 100%; min-width: unset; padding: 6px 12px; }
+
+          /* ── Chip grid in side panel: 6 per row (smaller chips) ── */
+          .chip-grid-mobile {
+            display: grid !important;
+            grid-template-columns: repeat(6, 1fr) !important;
+            gap: 6px !important;
+          }
+          .chip-grid-item {
+            padding: 1px;
           }
 
-          .main-area { padding: 8px 8px 20px; }
+          /* ── Main area ── */
+          .main-area { padding: 6px 6px 100px; }
+          .game-container { flex-direction: column; gap: 8px; }
 
-          .game-container { flex-direction: column; gap: 10px; }
-
+          /* ── Wheel: centered, good size ── */
           .wheel-section {
             position: static;
             transform: none;
@@ -1678,17 +1716,67 @@ export default function Roulette() {
             margin: 0 auto;
           }
           .wheel-wrap {
-            width: clamp(180px, 68vw, 280px);
-            height: clamp(180px, 68vw, 280px);
+            width: clamp(220px, 74vw, 300px);
+            height: clamp(220px, 74vw, 300px);
           }
-          .result-number { font-size: 36px; }
-          .spin-btn { width: 100%; max-width: 260px; }
+          .result-number { font-size: 32px; }
+          .spin-btn { width: 100%; max-width: 280px; }
 
-          .svg-wrap { display: block; }
+          /* ── Table: fill full width, no horizontal scroll ── */
+          .svg-wrap {
+            display: block;
+            width: 100%;
+            overflow-x: visible;
+          }
+          .table-inner-wrap {
+            min-width: unset;
+            width: 100%;
+            position: relative;
+          }
 
+          /* ── ChipSelector: fixed floating bar at BOTTOM of screen ── */
           .table-chip-selector {
-            transform: translateX(-50%) scale(0.45);
-            bottom: 5%; left: 68%;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            transform: none !important;
+            transform-origin: unset !important;
+            z-index: 300 !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(8, 12, 16, 0.96);
+            border-top: 1px solid rgba(30,37,48,0.9);
+            backdrop-filter: blur(10px);
+            padding: 4px 8px 10px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
+          }
+
+          /* ── Total bet badge ── */
+          .table-total-bet {
+            top: 2.5%;
+            right: 2.5%;
+            padding: 5px 8px;
+            min-width: 85px;
+            border-radius: 8px;
+          }
+          .table-total-bet .total-bet-label { font-size: 0.55rem; }
+          .table-total-bet .total-bet-value { font-size: 0.8rem; }
+
+          /* ── Edit toggle ── */
+          .table-edit-toggle { top: 3%; left: 3%; }
+          .table-edit-toggle button {
+            min-width: 55px;
+            padding: 5px 7px;
+            font-size: 0.65rem;
+            border-radius: 8px;
+          }
+
+          /* ── Bet amount/payout text ── */
+          .side-panel-body .bet-hint-text {
+            font-size: 0.58rem !important;
           }
         }
 
@@ -1890,7 +1978,7 @@ export default function Roulette() {
               <div style={{ fontSize: "0.75rem", color: "#7a8494", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 6 }}>
                 Chip Value
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "10px 8px" }}>
+              <div className="chip-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "10px 8px" }}>
                 {CHIP_DEFS.map((cd) => (
                   <div
                     key={cd.cls}
@@ -1900,6 +1988,7 @@ export default function Roulette() {
                       chipValueRef.current = cd.value;
                       chipClsRef.current = cd.cls;
                     }}
+                    className="chip-grid-item"
                     style={{
                       aspectRatio: "1",
                       borderRadius: "50%",
@@ -1913,7 +2002,7 @@ export default function Roulette() {
                         : "0 3px 10px rgba(0,0,0,0.5)",
                       transform: chipCls === cd.cls ? "scale(1.15)" : "scale(1)",
                       transition: "transform 0.15s,box-shadow 0.15s",
-                      userSelect: "none",
+                      userSelect: "none" as const,
                       background: "rgba(255,255,255,0.03)",
                       padding: 2,
                     }}

@@ -347,15 +347,22 @@ export default function ChipSelector({
       */}
       <style>{`
         :root {
-          --chip-size: 56px;
+          --chip-size: 64px;
           --chip-gap:  6px;
-          --chip-cell: 42px;
+          --chip-cell: 52px;
+        }
+        @media (min-width: 480px) {
+          :root {
+            --chip-size: 70px;
+            --chip-gap:  7px;
+            --chip-cell: 58px;
+          }
         }
         @media (min-width: 640px) {
           :root {
-            --chip-size: 54px;
+            --chip-size: 64px;
             --chip-gap:  8px;
-            --chip-cell: 55px;
+            --chip-cell: 60px;
           }
         }
         @media (min-width: 768px) {
