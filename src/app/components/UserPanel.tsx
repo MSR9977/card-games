@@ -1,11 +1,33 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useFirebaseUser } from "./FirebaseProvider";
 
 export default function UserPanel() {
   const { user, loading, loginWithGoogle, logout, adjustBalance } = useFirebaseUser();
+  const [authBusy, setAuthBusy] = useState(false);
+
+  const handleLogin = async () => {
+    if (authBusy || loading) return;
+    setAuthBusy(true);
+    try {
+      await loginWithGoogle();
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (authBusy || loading) return;
+    setAuthBusy(true);
+    try {
+      await logout();
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   return (
     <section
@@ -16,22 +38,23 @@ export default function UserPanel() {
         flexWrap: "wrap",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: "12px",
-        padding: "18px 20px",
-        marginBottom: "16px",
-        background: "rgba(15, 20, 28, 0.9)",
+        gap: "8px",
+        padding: "8px 12px",
+        margin: "0 auto 10px",
+        background: "rgba(8, 12, 18, 0.82)",
         border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: 18,
+        borderRadius: 10,
+        backdropFilter: "blur(10px)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
         <div
           style={{
-            width: 56,
-            height: 56,
+            width: 36,
+            height: 36,
             borderRadius: "50%",
             overflow: "hidden",
-            border: "2px solid rgba(124,229,204,0.7)",
+            border: "1px solid rgba(124,229,204,0.55)",
             background: "#111319",
             flexShrink: 0,
           }}
@@ -40,8 +63,8 @@ export default function UserPanel() {
             <Image
               src={user.photoURL}
               alt={user.displayName}
-              width={56}
-              height={56}
+              width={36}
+              height={36}
               style={{ objectFit: "cover" }}
             />
           ) : (
@@ -53,6 +76,7 @@ export default function UserPanel() {
                 placeItems: "center",
                 color: "#7ce5cc",
                 fontWeight: 700,
+                fontSize: "0.9rem",
               }}
             >
               ؟
@@ -60,193 +84,119 @@ export default function UserPanel() {
           )}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div
+          <h2
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-              minWidth: 0,
+              maxWidth: "min(48vw, 260px)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: "0.9rem",
+              lineHeight: 1.25,
+              fontWeight: 800,
+              color: "#ffffff",
             }}
           >
-            <h2
+            {user ? user.displayName : "الدخول"}
+          </h2>
+          {user?.isAdmin ? (
+            <span
               style={{
-                fontSize: "1rem",
-                fontWeight: 800,
-                color: "#ffffff",
-                whiteSpace: "nowrap",
+                display: "inline-flex",
+                marginTop: 2,
+                padding: "2px 6px",
+                borderRadius: 999,
+                background: "rgba(124,229,204,0.14)",
+                color: "#7ce5cc",
+                fontSize: "0.7rem",
+                lineHeight: 1.2,
               }}
             >
-              {user ? `أهلاً ${user.displayName}` : "مرحباً بك في الكازينو"}
-            </h2>
-            {user?.isAdmin ? (
-              <span
-                style={{
-                  padding: "5px 10px",
-                  borderRadius: 999,
-                  background: "rgba(124,229,204,0.14)",
-                  color: "#7ce5cc",
-                  fontSize: "0.85rem",
-                }}
-              >
-                ADMIN
-              </span>
-            ) : null}
-          </div>
-          <div style={{ color: "#a8b1c2", fontSize: "0.85rem", marginTop: 3 }}>
-            {user
-              ? `عضو منذ ${new Date(user.memberSince).toLocaleDateString("ar-EG")} · آخر دخول ${new Date(
-                  user.lastLogin,
-                ).toLocaleString("ar-EG")} · ${user.online ? "أونلاين" : "أوفلاين"}`
-              : "سجّل دخول بحساب Google لتخزين الرصيد والعضوية"}
-          </div>
-          {user ? (
-            <div style={{ color: "#cbd5e1", fontSize: "0.82rem", marginTop: 6 }}>
-              الرقم التسلسلي: <span style={{ color: "#7ce5cc" }}>{user.serial}</span>
-            </div>
+              ADMIN
+            </span>
           ) : null}
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "flex-end" }}>
         {user ? (
           <>
-            <div
-              style={{
-                minWidth: 170,
-                padding: "10px 14px",
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>رصيد الكارد قيمز</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-                <span style={{ fontWeight: 700, color: "#f8fafc" }}>${user.balances.cards.toLocaleString()}</span>
-                {user.isAdmin ? (
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      onClick={() => adjustBalance("cards", 100)}
-                      style={buttonStyle}
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => adjustBalance("cards", -100)}
-                      style={buttonStyle}
-                    >
-                      -
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+            <div style={balancePillStyle}>
+              كارد: <span style={{ color: "#f8fafc" }}>${user.balances.cards.toLocaleString()}</span>
+              {user.isAdmin ? (
+                <span style={{ display: "inline-flex", gap: 4, marginInlineStart: 4 }}>
+                  <button onClick={() => adjustBalance("cards", 100)} style={miniButtonStyle}>
+                    +
+                  </button>
+                  <button onClick={() => adjustBalance("cards", -100)} style={miniButtonStyle}>
+                    -
+                  </button>
+                </span>
+              ) : null}
             </div>
-            <div
-              style={{
-                minWidth: 170,
-                padding: "10px 14px",
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>رصيد الروليت</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-                <span style={{ fontWeight: 700, color: "#f8fafc" }}>${user.balances.roulette.toLocaleString()}</span>
-                {user.isAdmin ? (
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      onClick={() => adjustBalance("roulette", 100)}
-                      style={buttonStyle}
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => adjustBalance("roulette", -100)}
-                      style={buttonStyle}
-                    >
-                      -
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+            <div style={balancePillStyle}>
+              روليت: <span style={{ color: "#f8fafc" }}>${user.balances.roulette.toLocaleString()}</span>
+              {user.isAdmin ? (
+                <span style={{ display: "inline-flex", gap: 4, marginInlineStart: 4 }}>
+                  <button onClick={() => adjustBalance("roulette", 100)} style={miniButtonStyle}>
+                    +
+                  </button>
+                  <button onClick={() => adjustBalance("roulette", -100)} style={miniButtonStyle}>
+                    -
+                  </button>
+                </span>
+              ) : null}
             </div>
           </>
         ) : (
           <button
-            onClick={loginWithGoogle}
+            onClick={handleLogin}
+            disabled={authBusy || loading}
             style={{
-              padding: "12px 18px",
-              borderRadius: 14,
+              ...navButtonStyle,
               border: "1px solid rgba(124,229,204,0.45)",
               background: "rgba(124,229,204,0.12)",
               color: "#e2e8f0",
-              fontWeight: 700,
-              cursor: "pointer",
-              minWidth: 190,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
+              opacity: authBusy || loading ? 0.65 : 1,
             }}
           >
             <Image
               src="/google-login-dark.svg"
               alt="Google login"
-              width={24}
-              height={24}
-              style={{ display: "block" }}
+              width={18}
+              height={18}
+              style={{ display: "block", flexShrink: 0 }}
             />
-            تسجيل الدخول باستخدام Google
+            دخول Google
           </button>
         )}
 
         {user ? (
           <>
-            <Link
-              href="/"
-              style={{
-                padding: "12px 18px",
-                borderRadius: 14,
-                border: "1px solid rgba(56,189,248,0.45)",
-                background: "rgba(56,189,248,0.12)",
-                color: "#dbeafe",
-                fontWeight: 700,
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
+            <Link href="/" style={navLinkStyle}>
               الرئيسية
             </Link>
             <Link
               href="/user"
               style={{
-                padding: "12px 18px",
-                borderRadius: 14,
+                ...navLinkStyle,
                 border: "1px solid rgba(96,165,250,0.45)",
                 background: "rgba(96,165,250,0.12)",
-                color: "#dbeafe",
-                fontWeight: 700,
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
               }}
             >
-              صفحة المستخدم
+              المستخدم
             </Link>
             <button
-              onClick={logout}
+              onClick={handleLogout}
+              disabled={authBusy || loading}
               style={{
-                padding: "12px 18px",
-                borderRadius: 14,
+                ...navButtonStyle,
                 border: "1px solid rgba(248, 113, 113, 0.35)",
                 background: "rgba(248, 113, 113, 0.12)",
                 color: "#fee2e2",
-                fontWeight: 700,
-                cursor: "pointer",
+                opacity: authBusy || loading ? 0.65 : 1,
               }}
             >
-              تسجيل الخروج
+              خروج
             </button>
           </>
         ) : null}
@@ -255,13 +205,49 @@ export default function UserPanel() {
   );
 }
 
-const buttonStyle = {
-  width: 30,
-  height: 30,
-  borderRadius: 10,
+const balancePillStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  minHeight: 34,
+  padding: "6px 10px",
+  borderRadius: 9,
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "#94a3b8",
+  fontSize: "0.78rem",
+  fontWeight: 700,
+};
+
+const navButtonStyle = {
+  minHeight: 34,
+  padding: "6px 10px",
+  borderRadius: 9,
+  fontSize: "0.8rem",
+  fontWeight: 800,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  whiteSpace: "nowrap" as const,
+};
+
+const navLinkStyle = {
+  ...navButtonStyle,
+  border: "1px solid rgba(56,189,248,0.45)",
+  background: "rgba(56,189,248,0.12)",
+  color: "#dbeafe",
+  textDecoration: "none",
+};
+
+const miniButtonStyle = {
+  width: 22,
+  height: 22,
+  borderRadius: 7,
   border: "1px solid rgba(255,255,255,0.15)",
   background: "rgba(255,255,255,0.06)",
   color: "#ffffff",
-  fontWeight: 700,
+  fontWeight: 800,
   cursor: "pointer",
+  lineHeight: 1,
 };

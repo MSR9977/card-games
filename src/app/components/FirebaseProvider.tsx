@@ -174,7 +174,7 @@ export default function FirebaseProvider({ children }: { children: React.ReactNo
     const fbUser = auth.currentUser;
     if (fbUser) {
       const userOnlineRef = ref(database, `users/${fbUser.uid}/online`);
-      await update(userOnlineRef, false as any);
+      await set(userOnlineRef, false);
     }
     await firebaseSignOut(auth);
     setUser(null);
